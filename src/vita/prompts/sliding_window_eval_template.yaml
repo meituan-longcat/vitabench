@@ -1,0 +1,108 @@
+name: sliding_window_eval_template
+chinese: |-
+  # 系统信息
+  {env_info}
+
+  # 用户完整指令
+  {user_instruction}
+
+  # 背景说明
+  - 这是一个user与assistant之间的对话场景，其中assistant可以调用工具获取信息和完成操作，工具返回结果将以tool开头
+  - 你需要评估用户指令是否被完成，用户的完整指令已被拆分为若干个得分点rubric，你只需要判断每个得分点是否满足
+  - 由于对话轮次较多，我们采用滑动窗口评估法，即每次可见10轮对话，每个窗口间有2轮对话重叠，但是rubric状态会跨窗口保留
+  - 你正在评估第 {window_idx} 个窗口（本次任务总共 {total_windows} 个窗口）
+  - <window_content>包含了当前窗口的对话内容
+  - <current_rubrics>包含了当前所有得分点的状态（true表示已满足，false表示未满足，所有得分点的初始状态均为false）
+
+  # 任务
+  - 基于当前窗口的对话内容，更新得分点rubric的状态
+  - 你可以将状态由false更新为true，当且仅当assistant在此窗口中完成了该目标
+  - 你也可以将true再次更新为false，当且仅当assistant在此窗口中推翻了之前的正确结论（但请注意：如果是用户需求自己发生了变更，例如下单后主动取消，则不应推翻原本对下单需求的评估）
+  - 你可以参考“用户完整指令”来获取当前对话窗口的进度，避免出现不必要的修改
+  
+  # 注意事项
+  - 重要：所有的评估以assistant的回复及工具调用请求是否完成rubric中的目标为准，user在对话中表达的内容仅视为对assistant的提示和引导，不会直接影响评估标准，一切以rubric字段为准！
+  - 重要：查询类tool返回的结果仅对assistant可见，并不代表assistant对用户推荐的内容，因此也不直接影响评估结果，一切都要以assistant获取信息后对用户的回复为准！同时需要注意，Assistant 也不能编造 Tool 的返回结果！
+  - 重要：对于订单类rubric（涉及到订单细节，必须生成订单的），必须确认assistant是否真的完成了下单操作。有可能assistant误以为完成了下单操作，实际上工具调用失败；或user表示可以“可以自己下单”等情况，都应视为未满足要求
+  - 对于涉及到订单细节如商品数量、送达时间的rubric，必须严格满足原始rubric要求（不能有商品数量偏差，不得晚于期望送达时间），用户妥协行为不影响评判结果（例如user表示“某商品少点也行”、“对订单内容没有异议”或“晚点送达也行”等），这类情况仍应视为未满足要求
+  - 对于涉及到文本内容匹配的地址或订单备注类rubric，采用功能等效原则：只要实际内容能实现相同功能（如大致定位配送地点或传达顾客的主要需求），即使表述不完全一致或缺少部分细节，也视为满足要求
+  - 如果当前窗口没有涉及某个规则，保持其原有状态不变；如果当前窗口涉及到某个规则但无法完全决定，可以将关键信息记录在justification中留待后续判断
+  - 在justification中以追加的形式记录与当前rubric有关的关键信息及其对应的轮次[x]，如果发生状态修改也需要记录原因，使用简练的语言，如果状态未修改，复述上次的原因
+
+  # 格式要求
+  - 你的回复应为一个JSON对象，包含以下字段：
+  - `rubric_idx`：规则的唯一标识符
+  - `rubric`：对规则的复述
+  - `justification`：对状态变化的解释
+  - `meetExpectation`：更新后的状态（true或false）
+ 
+  # 示例输入结构：
+  <window_content>xxx</window_content>
+  <current_rubrics>xxx</current_rubrics>
+
+  # 示例回复结构：
+  ```json
+  [
+    {{
+        "rubric_idx": "rubric_0",
+        "rubric": "<复述规则>",
+        "justification": "<状态变化的简要解释，以追加的形式记录>",
+        "meetExpectation": <true or false>
+    }},
+    ...
+  ]
+  ```
+
+english: |-
+  # System Information
+  {env_info}
+
+  # User Complete Instruction
+  {user_instruction}
+
+  # Background
+  - This is a conversation scenario between a user and an assistant, where the assistant can call tools to retrieve information and complete operations. Tool return results will start with "tool"
+  - You need to evaluate whether the user instruction has been completed. The user's complete instruction has been broken down into several scoring points (rubrics), and you only need to judge whether each scoring point is satisfied
+  - Due to the large number of conversation turns, we use sliding window evaluation, where each window shows 10 conversation turns with 2 overlapping turns between windows, but rubric status will be preserved across windows
+  - You are evaluating window {window_idx} (out of {total_windows} windows total)
+  - <window_content> contains the conversation content for the current window
+  - <current_rubrics> contains the current status of all scoring points (true means satisfied, false means not satisfied, all scoring points have an initial status of false)
+
+  # Task
+  - Update the scoring point rubric status based on the conversation content in the current window
+  - You can update the status from false to true, if and only if the assistant completed the goal in this window
+  - You can also update true back to false, if and only if the assistant overturned a previous correct conclusion in this window (but note: if the user's needs themselves changed, such as actively canceling after placing an order, the original evaluation of the ordering requirement should not be overturned)
+  - You can refer to the "User Complete Instruction" to understand the progress of the current conversation window and avoid unnecessary modifications
+  
+  # Important Notes
+  - Important: All evaluations are based on whether the assistant's responses and tool call requests complete the goals in the rubrics. User expressions in the conversation are only considered as guidance for the assistant and do not directly affect evaluation standards. Everything is based on the rubric fields!
+  - Important: Query tool return results are only visible to the assistant and do not represent content recommended by the assistant to users, so they do not directly affect evaluation results either. Everything must be based on the assistant's responses to users after obtaining information! Also note that the Assistant cannot fabricate Tool return results!
+  - Important: For order-related rubrics (involving order details that must generate orders), you must confirm whether the assistant actually completed the ordering operation. The assistant may mistakenly believe they completed the ordering operation when in fact the tool call failed; or situations where the user states they "can place the order themselves," etc., should all be considered as not meeting the requirements
+  - For rubrics involving order details such as product quantity or delivery time, the original rubric requirements must be strictly met (no deviation in product quantities, delivery must not be later than the expected time). User compromise behavior does not affect evaluation results (for example, when a user states "fewer items is okay", "I have no objections to the order content" or "later delivery is fine" etc.). These situations should still be considered as not meeting the requirements
+  - For rubrics involving text content matching of addresses or order notes, apply the functional equivalence principle: as long as the actual content can achieve the same function (such as roughly locating the delivery location or conveying the customer's main needs), it is considered to meet the requirements even if the expression is not completely consistent or lacks some details
+  - If the current window does not involve a certain rubric, keep its original status unchanged; if the current window involves a rubric but cannot fully determine it, key information can be recorded in the justification for future judgment
+  - In the justification, record key information related to the current rubric and its corresponding round [x] in an appending manner. If status modifications occur, record the reason using concise language. If the status is not modified, restate the previous reason
+
+  # Format Requirements
+  - Your response should be a JSON object containing the following fields:
+  - `rubric_idx`: Unique identifier for the rubric
+  - `rubric`: Restatement of the rubric
+  - `justification`: Explanation of status changes
+  - `meetExpectation`: Updated status (true or false)
+ 
+  # Example Input Structure:
+  <window_content>xxx</window_content>
+  <current_rubrics>xxx</current_rubrics>
+
+  # Example Response Structure:
+  ```json
+  [
+    {{
+        "rubric_idx": "rubric_0",
+        "rubric": "<restate the rubric>",
+        "justification": "<brief explanation of status change, recorded in appended format>",
+        "meetExpectation": <true or false>
+    }},
+    ...
+  ]
+  ```

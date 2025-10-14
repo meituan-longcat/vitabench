@@ -1,0 +1,33 @@
+# LLM Model Configuration
+# This file defines the available language models and their configurations
+
+# Available models
+default:
+  base_url: <base_url>
+  temperature: 0.0
+  max_input_tokens: 32768
+  headers:
+    Authorization: "Bearer <api_key>"
+    Content-Type: "application/json"
+
+models:
+  - name: gpt-4.1
+    max_tokens: 8192
+    max_input_tokens: 32768
+    cost_1m_token_dollar:
+      prompt_price: 2.00
+      completion_price: 8.00
+
+  - name: claude-3.7-sonnet
+    temperature: 0.0
+    max_tokens: 32768
+    max_input_tokens: 200000
+    thinking:
+      type: "enabled"
+      budget_tokens: 16384
+
+  - name: Doubao-Seed-1.6-thinking
+    temperature: 0.0
+    max_completion_tokens: 8192
+    max_input_tokens: 200000
+    reasoning_effort: "high"
