@@ -4,7 +4,7 @@
 </h1></div>
 
 <p align="center">
-  📃 <a href="https://arxiv.org/abs/2509.26490" target="_blank">Paper</a > • 🌐 <a href="https://vitabench.github.io/" target="_blank">Website</a > • 🏆 <a href="https://vitabench.github.io/#Leaderboard" target="_blank">Leaderboard</a > • 🤗 <a href="https://huggingface.co/datasets/meituan/VitaBench" target="_blank">Dataset</a ><br>
+  📃 <a href="https://arxiv.org/abs/2509.26490" target="_blank">Paper</a > • 🌐 <a href="https://vitabench.github.io/" target="_blank">Website</a > • 🏆 <a href="https://vitabench.github.io/#Leaderboard" target="_blank">Leaderboard</a > • 🤗 <a href="https://huggingface.co/datasets/meituan-longcat/VitaBench" target="_blank">Dataset</a ><br>
 </p >
 
 ## 🔔 News
