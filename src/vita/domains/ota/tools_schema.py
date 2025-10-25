@@ -108,7 +108,7 @@ TOOL_DESCRIPTIONS_ZH = {
         "postconditions": "生成订单，请用户确认支付",
         "args": {
             "hotel_id": "酒店ID",
-            "product_id": "房间ID",
+            "room_id": "房间ID",
             "user_id": "用户ID"
         },
         "returns": "创建订单操作的反馈输出",

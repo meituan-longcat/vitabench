@@ -298,7 +298,7 @@ class OTATools(ToolKitBase):
         return trains_repr
 
     @is_tool(tool_type=ToolType.WRITE)
-    def create_hotel_order(self, hotel_id: str, product_id: str, user_id: str) -> str:
+    def create_hotel_order(self, hotel_id: str, room_id: str, user_id: str) -> str:
 
         assert hotel_id, "Hotel ID cannot be empty"
         assert user_id, "User ID cannot be empty"
@@ -308,7 +308,7 @@ class OTATools(ToolKitBase):
 
         ordered_rooms = []
         for product in hotel.products:
-            if product.product_id == product_id:
+            if product.product_id == room_id:
                 if product.quantity <= 0:
                    return f"No available rooms at the moment"
                 product.quantity = product.quantity - 1

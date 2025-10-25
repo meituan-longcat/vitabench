@@ -15,7 +15,7 @@ class HotelProduct(ProductBaseModel):
                 f"date={self.date}, "
                 f"price={self.price}, "
                 f"quantity={self.quantity}, "
-                f"product_id={self.product_id})")
+                f"room_id={self.product_id})")
 
 
 class AttractionProduct(ProductBaseModel):
@@ -27,7 +27,7 @@ class AttractionProduct(ProductBaseModel):
                 f"date={self.date}, "
                 f"price={self.price}, "
                 f"quantity={self.quantity}, "
-                f"product_id={self.product_id})")
+                f"attraction_id={self.product_id})")
 
 
 class FlightProduct(ProductBaseModel):
@@ -39,7 +39,7 @@ class FlightProduct(ProductBaseModel):
                 f"date={self.date}, "
                 f"price={self.price}, "
                 f"quantity={self.quantity}, "
-                f"product_id={self.product_id})")
+                f"seat_id={self.product_id})")
 
 
 class TrainProduct(ProductBaseModel):
@@ -51,7 +51,7 @@ class TrainProduct(ProductBaseModel):
                 f"date={self.date}, "
                 f"price={self.price}, "
                 f"quantity={self.quantity}, "
-                f"product_id={self.product_id})")
+                f"seat_id={self.product_id})")
 
 
 class Hotel(StoreBaseModel):
