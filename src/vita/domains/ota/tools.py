@@ -323,7 +323,7 @@ class OTATools(ToolKitBase):
                 break
 
         order = Order(
-            order_id=self.db.assign_order_id("hotel", user_id, hotel_id=hotel_id, product_id=product_id),
+            order_id=self.db.assign_order_id("hotel", user_id, hotel_id=hotel_id, product_id=room_id),
             order_type="hotel",
             user_id=user_id,
             store_id=hotel_id,
