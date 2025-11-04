@@ -9,6 +9,7 @@
 
 ## 🔔 News
 
+- [2025-11] The English version of the VitaBench dataset is now released! It includes fully translated tasks and databases, enabling broader international use. Try it out!
 - [2025-10] Our paper is released on arXiv: [VitaBench: Benchmarking LLM Agents with Versatile Interactive Tasks in Real-world Applications](https://arxiv.org/abs/2509.26490)
 - [2025-10] The VitaBench suite is released, including the **codebase, dataset and evaluation pipeline**! If you have any questions, feel free to raise issues and/or submit pull requests for new features of bug fixes.
 
