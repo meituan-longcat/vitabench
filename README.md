@@ -49,7 +49,7 @@ Statistics of databases and environments:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/meituan/vitabench.git
+git clone https://github.com/meituan-longcat/vitabench.git
 cd vitabench
 ```
 
