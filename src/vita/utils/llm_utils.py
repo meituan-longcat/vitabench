@@ -221,15 +221,15 @@ def generate(
                 "tools": tools,
                 "tool_choice": tool_choice,
             }
-            data.update(models[model])
             data = kwargs_adapter(data, enable_think, messages)
             headers = models[model]["headers"]
+            base_url = models[model]["base_url"]
 
             max_retries = 3
             retry_delay = 1
             for attempt in range(max_retries + 1):
                 try:
-                    response = requests.post(data["base_url"], json=data, headers=headers, timeout=(10, 600))
+                    response = requests.post(base_url, json=data, headers=headers, timeout=(10, 600))
 
                     if response.status_code != 500:
                         response = response.json()
