@@ -983,7 +983,19 @@
         return `
           <details>
             <summary>${escapeHtml(title)}</summary>
+            ${renderHttpRequest(entry.http_request)}
             <pre>${escapeHtml(body || "")}</pre>
+          </details>
+        `;
+      }
+
+      function renderHttpRequest(request) {
+        if (!request) return "";
+        const label = request.source === "recorded" ? "raw HTTP request" : "reconstructed HTTP request";
+        return `
+          <details>
+            <summary>${escapeHtml(label)}</summary>
+            <pre>${escapeHtml(JSON.stringify(request, null, 2))}</pre>
           </details>
         `;
       }

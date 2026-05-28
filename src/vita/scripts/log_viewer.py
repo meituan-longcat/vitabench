@@ -690,7 +690,7 @@ def create_app(logs_dir: Optional[str] = None) -> FastAPI:
                 detail=f"sim_index out of range: {sim_index} (have {len(results.simulations)} simulations)",
             )
         sim = results.simulations[sim_index]
-        timeline = build_timeline_from_simulation(sim)
+        timeline = build_timeline_from_simulation(sim, results)
         if not include_raw:
             for row in timeline:
                 if row.get("kind") in ("assistant", "user"):

@@ -367,6 +367,17 @@
         return html;
       }
 
+      function renderHttpRequest(request) {
+        if (!request) return "";
+        const label = request.source === "recorded" ? "原始 HTTP 请求" : "重建 HTTP 请求";
+        return (
+          "<details><summary><strong>" +
+          esc(label) +
+          "</strong></summary><pre>" +
+          esc(JSON.stringify(request, null, 2)) +
+          "</pre></details>"
+        );
+      }
 
       function buildUserProfileHtml(p) {
         if (!p) return "";
@@ -522,6 +533,7 @@
               esc(JSON.stringify(e.raw_data, null, 2)) +
               "</pre></details>";
           }
+          body += renderHttpRequest(e.http_request);
         } else if (kind === "assistant") {
           if (e.assistant_received_context && e.assistant_received_context.length) {
             body +=
@@ -552,6 +564,7 @@
               esc(JSON.stringify(e.raw_data, null, 2)) +
               "</pre></details>";
           }
+          body += renderHttpRequest(e.http_request);
         } else if (kind === "tool") {
           body =
             '<div class="badge">call_id: ' +

@@ -55,6 +55,38 @@ def _tool_calls_public(tc_list: Optional[list]) -> list[dict[str, Any]]:
     return out
 
 
+def _redact_secret_value(value: Any) -> Any:
+    if not isinstance(value, str):
+        return "（已隐藏）"
+    if len(value) > 16:
+        return value[:10] + "…（已隐藏）"
+    return "（已隐藏）"
+
+
+def _redact_headers_for_display(headers: Optional[dict]) -> Optional[dict]:
+    if not isinstance(headers, dict):
+        return headers
+    redacted = copy.deepcopy(headers)
+    for key in list(redacted.keys()):
+        lk = str(key).lower()
+        if lk in ("authorization", "cookie", "x-api-key", "api-key"):
+            redacted[key] = _redact_secret_value(redacted[key])
+    return redacted
+
+
+def _redact_request_json_for_display(payload: Optional[dict]) -> Optional[dict]:
+    if not isinstance(payload, dict):
+        return payload
+    redacted = copy.deepcopy(payload)
+    if isinstance(redacted.get("headers"), dict):
+        redacted["headers"] = _redact_headers_for_display(redacted["headers"])
+    for key in list(redacted.keys()):
+        lk = str(key).lower()
+        if lk in ("authorization", "cookie", "x-api-key", "api-key", "token"):
+            redacted[key] = _redact_secret_value(redacted[key])
+    return redacted
+
+
 def _message_public_snapshot(msg: Any) -> dict[str, Any]:
     """用于“assistant 本轮接收信息”展示的简化快照。"""
     base = {
@@ -106,7 +138,75 @@ def _message_public_snapshot(msg: Any) -> dict[str, Any]:
     return {**base, "kind": "unknown", "repr": repr(msg)}
 
 
-def build_timeline_from_simulation(simulation: SimulationRun) -> list[dict[str, Any]]:
+def _recorded_http_request(raw_data: Optional[dict]) -> Optional[dict[str, Any]]:
+    if not isinstance(raw_data, dict):
+        return None
+    request = raw_data.get("_http_request") or raw_data.get("http_request")
+    if not isinstance(request, dict):
+        return None
+    redacted = copy.deepcopy(request)
+    redacted["source"] = redacted.get("source") or "recorded"
+    redacted["headers"] = _redact_headers_for_display(redacted.get("headers"))
+    redacted["json"] = _redact_request_json_for_display(redacted.get("json"))
+    return redacted
+
+
+def _llm_info_for_role(results: Optional[Results], role: str):
+    if results is None:
+        return None
+    if role == "user":
+        return results.info.user_info
+    if role == "assistant":
+        return results.info.agent_info
+    return None
+
+
+def _reconstructed_http_request(
+    results: Optional[Results],
+    role: str,
+    received_messages: list[dict[str, Any]],
+) -> Optional[dict[str, Any]]:
+    info = _llm_info_for_role(results, role)
+    if info is None:
+        return None
+    llm_args = _redact_request_json_for_display(getattr(info, "llm_args", None)) or {}
+    request_json = copy.deepcopy(llm_args)
+    base_url = request_json.pop("base_url", None)
+    headers = request_json.pop("headers", None)
+    request_json.update(
+        {
+            "model": getattr(info, "llm", None),
+            "messages": received_messages,
+            "stream": False,
+        }
+    )
+    if role == "assistant":
+        request_json["tools"] = "not stored in Results; available at runtime"
+        request_json["tool_choice"] = "auto when tools are supplied"
+    return {
+        "source": "reconstructed",
+        "method": "POST",
+        "url": base_url,
+        "headers": _redact_headers_for_display(headers),
+        "json": request_json,
+        "note": "The original HTTP request was not stored in this Results file; this view is reconstructed from saved context and run metadata.",
+    }
+
+
+def _http_request_snapshot(
+    results: Optional[Results],
+    role: str,
+    received_messages: list[dict[str, Any]],
+    raw_data: Optional[dict],
+) -> Optional[dict[str, Any]]:
+    return _recorded_http_request(raw_data) or _reconstructed_http_request(
+        results, role, received_messages
+    )
+
+
+def build_timeline_from_simulation(
+    simulation: SimulationRun, results: Optional[Results] = None
+) -> list[dict[str, Any]]:
     """
     按 messages 顺序生成 timeline 条目；assistant 拆出思维链、正文、工具调用；tool 含结果与错误标记。
     """
@@ -145,6 +245,9 @@ def build_timeline_from_simulation(simulation: SimulationRun) -> list[dict[str, 
                     "tool_calls": _tool_calls_public(msg.tool_calls),
                     "usage": msg.usage,
                     "cost": msg.cost,
+                    "http_request": _http_request_snapshot(
+                        results, "user", received_messages, msg.raw_data
+                    ),
                     "raw_data": msg.raw_data,
                     "user_received_context": received_messages,
                 }
@@ -166,6 +269,9 @@ def build_timeline_from_simulation(simulation: SimulationRun) -> list[dict[str, 
                     "tool_calls": _tool_calls_public(msg.tool_calls),
                     "usage": msg.usage,
                     "cost": msg.cost,
+                    "http_request": _http_request_snapshot(
+                        results, "assistant", received_messages, msg.raw_data
+                    ),
                     "raw_data": msg.raw_data,
                     # 近似重建：assistant 在该轮生成前可见的历史消息（按顺序）
                     "assistant_received_context": received_messages,
@@ -221,16 +327,7 @@ def _redact_llm_args_for_display(llm_args: Optional[dict]) -> Optional[dict]:
     if not llm_args:
         return None
     d = copy.deepcopy(llm_args)
-    headers = d.get("headers")
-    if isinstance(headers, dict):
-        for key in list(headers.keys()):
-            lk = str(key).lower()
-            if lk in ("authorization", "cookie", "x-api-key", "api-key"):
-                val = headers[key]
-                if isinstance(val, str) and len(val) > 16:
-                    headers[key] = val[:10] + "…（已隐藏）"
-                else:
-                    headers[key] = "（已隐藏）"
+    d["headers"] = _redact_headers_for_display(d.get("headers"))
     return d
 
 

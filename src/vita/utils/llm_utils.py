@@ -1,3 +1,4 @@
+import copy
 import json
 import re
 import time
@@ -60,6 +61,36 @@ def get_response_cost(usage, model) -> float:
         return (prompt_price * num_prompt_token + completion_price * num_completion_token) / 1000000
     else:
         return 0.0
+
+
+def _redact_secret_value(value: Any) -> Any:
+    if not isinstance(value, str):
+        return "[redacted]"
+    if len(value) > 16:
+        return value[:10] + "...[redacted]"
+    return "[redacted]"
+
+
+def _redact_headers(headers: Optional[dict]) -> Optional[dict]:
+    if not isinstance(headers, dict):
+        return headers
+    redacted = copy.deepcopy(headers)
+    for key in list(redacted.keys()):
+        lk = str(key).lower()
+        if lk in ("authorization", "cookie", "x-api-key", "api-key"):
+            redacted[key] = _redact_secret_value(redacted[key])
+    return redacted
+
+
+def _redact_request_payload(payload: dict) -> dict:
+    redacted = copy.deepcopy(payload)
+    if isinstance(redacted.get("headers"), dict):
+        redacted["headers"] = _redact_headers(redacted["headers"])
+    for key in list(redacted.keys()):
+        lk = str(key).lower()
+        if lk in ("authorization", "cookie", "x-api-key", "api-key", "token"):
+            redacted[key] = _redact_secret_value(redacted[key])
+    return redacted
 
 
 def get_response_usage(response) -> Optional[dict]:
@@ -137,7 +168,7 @@ def to_claude_think_official(messages_formatted: list[dict], messages: list[Mess
             if signature:
                 messages_formatted[i]["signature"] = signature
 
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
 
@@ -159,7 +190,7 @@ def to_deepseek_think_official(messages_formatted: list[dict], messages: list[Me
             if reasoning_content:
                 messages_formatted[i]["reasoning_content"] = reasoning_content
 
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
 
@@ -224,6 +255,13 @@ def generate(
             data.update(models[model])
             data = kwargs_adapter(data, enable_think, messages)
             headers = models[model]["headers"]
+            request_snapshot = {
+                "source": "recorded",
+                "method": "POST",
+                "url": data.get("base_url"),
+                "headers": _redact_headers(headers),
+                "json": _redact_request_payload(data),
+            }
 
             max_retries = 3
             retry_delay = 1
@@ -256,6 +294,8 @@ def generate(
         cost = get_response_cost(usage, model)
         try:
             response = response['choices'][0]
+            if isinstance(response, dict):
+                response["_http_request"] = request_snapshot
         except (KeyError, IndexError, TypeError) as e:
             logger.error(f"Full response: {json.dumps(response, ensure_ascii=False, indent=2) if isinstance(response, dict) else response}")
             raise ValueError(f"Invalid API response format: {e}") from e
