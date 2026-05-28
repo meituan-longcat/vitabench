@@ -203,6 +203,23 @@ PYTHONPATH=src python3 -m vita.cli board --host 0.0.0.0 --port 8765
 
 打开 `http://127.0.0.1:8765/dashboard`，可查看每个实验的 split 进度、分数摘要，并点击 split 展开日志 tail。
 
+默认数据源：
+
+- logs：`data/logs`，看板会读取其中的 `benchmark_runs/<run_name>/`
+- results：`data/simulations`，看板会读取其中的 `benchmark_runs/<run_name>/`
+
+如需指定数据源：
+
+```bash
+PYTHONPATH=src python3 -m vita.cli board \
+  --host 0.0.0.0 \
+  --port 8765 \
+  --logs-dir /path/to/logs \
+  --simulations-dir /path/to/simulations
+```
+
+`--logs-dir` 和 `--simulations-dir` 可以传根目录，也可以传已经包含 `benchmark_runs` 的目录。
+
 现在可以直接把目录传给 `vita view`：
 
 ```bash

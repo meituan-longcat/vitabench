@@ -25,7 +25,12 @@ from vita.utils.task_sorting import simulation_sort_key, task_id_sort_key
 from vita.utils.utils import DATA_DIR
 
 
+SIMULATIONS_DIR_OVERRIDE: Optional[Path] = None
+
+
 def _simulations_dir() -> Path:
+    if SIMULATIONS_DIR_OVERRIDE is not None:
+        return SIMULATIONS_DIR_OVERRIDE
     return DATA_DIR / "simulations"
 
 
@@ -40,7 +45,11 @@ def _allowed_simulation_roots() -> list[Path]:
 
 
 def _benchmark_simulations_dir() -> Path:
-    return _simulations_dir() / "benchmark_runs"
+    simulations_dir = _simulations_dir()
+    benchmark_dir = simulations_dir / "benchmark_runs"
+    if benchmark_dir.exists() or not simulations_dir.name == "benchmark_runs":
+        return benchmark_dir
+    return simulations_dir
 
 
 def _benchmark_logs_dir(base_logs_dir: Path) -> Path:
@@ -456,7 +465,11 @@ def _is_non_full_reward(sim) -> bool:
         return True
 
 
-def create_app(logs_dir: Optional[str] = None) -> FastAPI:
+def create_app(
+    logs_dir: Optional[str] = None, simulations_dir: Optional[str] = None
+) -> FastAPI:
+    global SIMULATIONS_DIR_OVERRIDE
+    SIMULATIONS_DIR_OVERRIDE = Path(simulations_dir) if simulations_dir else None
     app = FastAPI(title="VitaBench Log Viewer")
     base_logs_dir = Path(logs_dir) if logs_dir else DATA_DIR / "logs"
     static_dir = Path(__file__).parents[1] / "web"

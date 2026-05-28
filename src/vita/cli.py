@@ -259,6 +259,12 @@ def main():
         default=None,
         help="Custom logs directory, default is data/logs.",
     )
+    log_view_parser.add_argument(
+        "--simulations-dir",
+        type=str,
+        default=None,
+        help="Custom simulations/results directory, default is data/simulations.",
+    )
     log_view_parser.set_defaults(func=lambda args: run_log_viewer(args))
 
     # Benchmark dashboard command
@@ -283,6 +289,12 @@ def main():
         type=str,
         default=None,
         help="Custom logs directory, default is data/logs.",
+    )
+    board_parser.add_argument(
+        "--simulations-dir",
+        type=str,
+        default=None,
+        help="Custom simulations/results directory, default is data/simulations.",
     )
     board_parser.set_defaults(func=lambda args: run_log_viewer(args))
 
@@ -317,7 +329,7 @@ def run_log_viewer(args):
 
     from vita.scripts.log_viewer import create_app
 
-    app = create_app(logs_dir=args.logs_dir)
+    app = create_app(logs_dir=args.logs_dir, simulations_dir=args.simulations_dir)
     uvicorn.run(app, host=args.host, port=args.port)
 
 
