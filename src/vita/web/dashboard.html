@@ -1001,6 +1001,7 @@
           <details>
             <summary>${escapeHtml(title)}</summary>
             ${renderHttpRequest(entry.http_request)}
+            ${renderHttpResponse(entry.http_response)}
             <pre>${escapeHtml(body || "")}</pre>
           </details>
         `;
@@ -1013,6 +1014,18 @@
           <details>
             <summary>${escapeHtml(label)}</summary>
             <pre>${escapeHtml(JSON.stringify(request, null, 2))}</pre>
+          </details>
+        `;
+      }
+
+      function renderHttpResponse(response) {
+        if (!response) return "";
+        const label =
+          response.source === "saved_choice_only" ? "saved assistant/user return" : "raw HTTP response";
+        return `
+          <details>
+            <summary>${escapeHtml(label)}</summary>
+            <pre>${escapeHtml(JSON.stringify(response, null, 2))}</pre>
           </details>
         `;
       }

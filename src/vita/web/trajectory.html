@@ -379,6 +379,19 @@
         );
       }
 
+      function renderHttpResponse(response) {
+        if (!response) return "";
+        const label =
+          response.source === "saved_choice_only" ? "已保存的 assistant/user 返回" : "原始 HTTP 响应";
+        return (
+          "<details><summary><strong>" +
+          esc(label) +
+          "</strong></summary><pre>" +
+          esc(JSON.stringify(response, null, 2)) +
+          "</pre></details>"
+        );
+      }
+
       function buildUserProfileHtml(p) {
         if (!p) return "";
         let h =
@@ -534,6 +547,7 @@
               "</pre></details>";
           }
           body += renderHttpRequest(e.http_request);
+          body += renderHttpResponse(e.http_response);
         } else if (kind === "assistant") {
           if (e.assistant_received_context && e.assistant_received_context.length) {
             body +=
@@ -565,6 +579,7 @@
               "</pre></details>";
           }
           body += renderHttpRequest(e.http_request);
+          body += renderHttpResponse(e.http_response);
         } else if (kind === "tool") {
           body =
             '<div class="badge">call_id: ' +

@@ -151,6 +151,19 @@ def _recorded_http_request(raw_data: Optional[dict]) -> Optional[dict[str, Any]]
     return redacted
 
 
+def _recorded_http_response(raw_data: Optional[dict]) -> Optional[dict[str, Any]]:
+    if not isinstance(raw_data, dict):
+        return None
+    response = raw_data.get("_http_response") or raw_data.get("http_response")
+    if isinstance(response, dict):
+        return copy.deepcopy(response)
+    return {
+        "source": "saved_choice_only",
+        "json": copy.deepcopy(raw_data),
+        "note": "This Results file stores only the selected response choice, not the full HTTP response object.",
+    }
+
+
 def _llm_info_for_role(results: Optional[Results], role: str):
     if results is None:
         return None
@@ -204,6 +217,10 @@ def _http_request_snapshot(
     )
 
 
+def _http_response_snapshot(raw_data: Optional[dict]) -> Optional[dict[str, Any]]:
+    return _recorded_http_response(raw_data)
+
+
 def build_timeline_from_simulation(
     simulation: SimulationRun, results: Optional[Results] = None
 ) -> list[dict[str, Any]]:
@@ -248,6 +265,7 @@ def build_timeline_from_simulation(
                     "http_request": _http_request_snapshot(
                         results, "user", received_messages, msg.raw_data
                     ),
+                    "http_response": _http_response_snapshot(msg.raw_data),
                     "raw_data": msg.raw_data,
                     "user_received_context": received_messages,
                 }
@@ -272,6 +290,7 @@ def build_timeline_from_simulation(
                     "http_request": _http_request_snapshot(
                         results, "assistant", received_messages, msg.raw_data
                     ),
+                    "http_response": _http_response_snapshot(msg.raw_data),
                     "raw_data": msg.raw_data,
                     # 近似重建：assistant 在该轮生成前可见的历史消息（按顺序）
                     "assistant_received_context": received_messages,
