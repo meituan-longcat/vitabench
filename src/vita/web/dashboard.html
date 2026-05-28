@@ -404,6 +404,12 @@
         cursor: default;
       }
 
+      .active-filter {
+        background: var(--coal) !important;
+        color: #fffaf0 !important;
+        border-color: var(--coal) !important;
+      }
+
       .timeline-preview {
         display: grid;
         gap: 8px;
@@ -551,6 +557,7 @@
         resultRunPages: {},
         resultRuns: {},
         resultRowsPerPage: 12,
+        resultRewardFilter: "all",
         expandedSimulation: "",
         timelines: {},
         autoRefresh: true,
@@ -823,7 +830,12 @@
           <section class="section">
             <div class="section-head">
               <h3>Result Files</h3>
-              <span class="mono">${files.length} files</span>
+              <div class="links">
+                <button id="rewardFilterBtn" class="${state.resultRewardFilter === "non_full" ? "active-filter" : ""}" title="只看 reward 未满分的 simulations">
+                  ${state.resultRewardFilter === "non_full" ? "non-full reward on" : "non-full reward"}
+                </button>
+                <span class="mono">${files.length} files</span>
+              </div>
             </div>
             <table class="table">
               <thead>
@@ -897,8 +909,13 @@
         }
         const total = cache.total_count || cache.simulation_count || 0;
         const pageCount = Math.max(1, Math.ceil(total / state.resultRowsPerPage));
+        const filterLabel =
+          cache.reward_filter === "non_full"
+            ? `non-full reward · ${total}/${cache.unfiltered_count || 0}`
+            : `${total} simulations`;
         return `
           <div class="result-panel">
+            <div class="mono" style="margin-bottom:10px">${escapeHtml(filterLabel)}</div>
             <table class="nested-table">
               <thead>
                 <tr>
@@ -1046,6 +1063,19 @@
             loadResultRuns(file);
           });
         });
+
+        const rewardFilterBtn = document.getElementById("rewardFilterBtn");
+        if (rewardFilterBtn) {
+          rewardFilterBtn.addEventListener("click", () => {
+            state.resultRewardFilter =
+              state.resultRewardFilter === "non_full" ? "all" : "non_full";
+            state.resultRuns = {};
+            state.resultRunPages = {};
+            state.expandedSimulation = "";
+            renderContent();
+            if (state.expandedResultFile) loadResultRuns(state.expandedResultFile);
+          });
+        }
       }
 
       function simulationKey(file, simIndex) {
@@ -1063,6 +1093,9 @@
           offset: String(page * state.resultRowsPerPage),
           limit: String(state.resultRowsPerPage),
         });
+        if (state.resultRewardFilter === "non_full") {
+          params.set("reward_filter", "non_full");
+        }
         try {
           const res = await fetch(`/api/simulation-runs?${params.toString()}`);
           if (!res.ok) throw new Error(await res.text());

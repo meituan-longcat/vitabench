@@ -447,6 +447,15 @@ def _trial_sort_key(trial: object) -> int:
         return -1
 
 
+def _is_non_full_reward(sim) -> bool:
+    if sim.reward_info is None:
+        return True
+    try:
+        return float(sim.reward_info.reward) < 1.0
+    except (TypeError, ValueError):
+        return True
+
+
 def create_app(logs_dir: Optional[str] = None) -> FastAPI:
     app = FastAPI(title="VitaBench Log Viewer")
     base_logs_dir = Path(logs_dir) if logs_dir else DATA_DIR / "logs"
@@ -651,10 +660,18 @@ def create_app(logs_dir: Optional[str] = None) -> FastAPI:
         file: str = Query(..., description="simulations 目录下的 json 相对路径"),
         offset: int = Query(0, ge=0),
         limit: Optional[int] = Query(None, ge=1, le=5000),
+        reward_filter: Optional[str] = Query(None, pattern="^(non_full)$"),
     ) -> dict:
         path = _resolve_simulation_file(file)
         results = Results.model_validate_json(path.read_text(encoding="utf-8"))
         sorted_rows = _sorted_simulation_rows(results)
+        unfiltered_count = len(sorted_rows)
+        if reward_filter == "non_full":
+            sorted_rows = [
+                (original_index, sim)
+                for original_index, sim in sorted_rows
+                if _is_non_full_reward(sim)
+            ]
         visible_rows = sorted_rows[offset : offset + limit] if limit is not None else sorted_rows
         runs = []
         for display_index, (original_index, sim) in enumerate(visible_rows, start=offset):
@@ -671,6 +688,8 @@ def create_app(logs_dir: Optional[str] = None) -> FastAPI:
             "task_count": len(results.tasks),
             "simulation_count": len(results.simulations),
             "total_count": len(sorted_rows),
+            "unfiltered_count": unfiltered_count,
+            "reward_filter": reward_filter,
             "offset": offset,
             "limit": limit,
             "runs": runs,
