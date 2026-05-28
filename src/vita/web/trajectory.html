@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaBench 完整轨迹</title>
+    <style>
+      :root {
+        --bg: #f0f4f8;
+        --card: #fff;
+        --border: #e2e8f0;
+        --text: #1e293b;
+        --muted: #64748b;
+        --user: #1d4ed8;
+        --assistant: #6d28d9;
+        --tool: #047857;
+        --system: #475569;
+        --reason: #0f766e;
+        --err: #b91c1c;
+      }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .topnav {
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .topnav a {
+        color: #93c5fd;
+        text-decoration: none;
+      }
+      .topnav a:hover {
+        text-decoration: underline;
+      }
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 12px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+        margin-bottom: 16px;
+      }
+      .field {
+        flex: 1;
+        min-width: 200px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      select,
+      input,
+      button {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        font-size: 14px;
+      }
+      button {
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        max-width: 140px;
+      }
+      button.secondary {
+        background: #334155;
+      }
+      .summary {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+        font-size: 13px;
+      }
+      .summary code {
+        background: #f1f5f9;
+        padding: 1px 6px;
+        border-radius: 4px;
+      }
+      .timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .msg {
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        overflow: hidden;
+      }
+      .msg-head {
+        padding: 8px 12px;
+        font-weight: 600;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .msg.user .msg-head {
+        background: #eff6ff;
+        color: var(--user);
+      }
+      .msg.assistant .msg-head {
+        background: #f5f3ff;
+        color: var(--assistant);
+      }
+      .msg.tool .msg-head,
+      .msg.multi_tool .msg-head {
+        background: #ecfdf5;
+        color: var(--tool);
+      }
+      .msg.system .msg-head {
+        background: #f1f5f9;
+        color: var(--system);
+      }
+      .msg-body {
+        padding: 10px 12px 12px;
+        font-size: 13px;
+      }
+      .badge {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+      pre {
+        margin: 0;
+        padding: 10px;
+        background: #0b1020;
+        color: #e2e8f0;
+        border-radius: 8px;
+        font-size: 12px;
+        line-height: 1.45;
+        overflow: auto;
+        max-height: 420px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      details {
+        margin-top: 8px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        padding: 6px 8px;
+        background: #fafafa;
+      }
+      details summary {
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--muted);
+        user-select: none;
+      }
+      .reasoning-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--reason);
+        margin-bottom: 6px;
+      }
+      .reasoning-label-user {
+        font-size: 12px;
+        font-weight: 600;
+        color: #1e40af;
+        margin-bottom: 6px;
+      }
+      pre.reasoning-user {
+        background: #1e3a5f;
+        color: #dbeafe;
+      }
+      .profile-card {
+        border-left: 4px solid #2563eb;
+        margin-bottom: 14px;
+      }
+      .profile-card h2 {
+        font-size: 16px;
+        margin: 0 0 8px;
+      }
+      .tool-panel h2 {
+        font-size: 16px;
+        margin: 0 0 8px;
+      }
+      .tool-panel .row {
+        margin-bottom: 8px;
+      }
+      .empty {
+        color: var(--muted);
+        padding: 24px;
+        text-align: center;
+      }
+      .err {
+        color: var(--err);
+        font-weight: 600;
+      }
+      .tc-arg {
+        margin-top: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="topnav">
+      <strong>VitaBench</strong>
+      <span>完整轨迹（simulations/**/*.json）</span>
+      <span style="opacity: 0.7">|</span>
+      <a href="/toolbox" target="_blank" rel="noopener noreferrer">工具调试台（独立窗口）</a>
+    </nav>
+    <div class="wrap">
+      <h1>按时间顺序查看：用户 · 模型（含思维链）· 工具</h1>
+      <p style="color: var(--muted); font-size: 13px; margin: 0 0 12px">
+        数据来自 <code>data/simulations/</code> 中保存的仿真结果，包含子目录中的 chunk/merged 结果。
+      </p>
+      <div class="row">
+        <div class="field">
+          <label>结果文件过滤</label>
+          <input id="fileFilter" placeholder="例如 merged / minimax / instore" />
+        </div>
+        <div class="field">
+          <label>结果文件</label>
+          <select id="fileSelect"></select>
+        </div>
+        <div class="field">
+          <label>本次 batch 中的第几条 simulation</label>
+          <select id="simSelect"></select>
+        </div>
+        <div class="field" style="flex: 0">
+          <label>&nbsp;</label>
+          <button id="loadBtn">加载轨迹</button>
+        </div>
+        <div class="field" style="flex: 0">
+          <label>&nbsp;</label>
+          <button class="secondary" id="toggleRaw" type="button" title="关闭可略减轻负载">
+            含 raw_data: 开
+          </button>
+        </div>
+      </div>
+      <div class="summary profile-card" id="userProfile" style="display: none"></div>
+      <div class="summary profile-card" id="evaluationResult" style="display: none"></div>
+      <div class="summary" id="summary" style="display: none"></div>
+      <div class="timeline" id="timeline"></div>
+      <p class="empty" id="placeholder">请选择结果文件并点击「加载轨迹」。</p>
+    </div>
+
+    <script>
+      let includeRaw = true;
+      let allFiles = [];
+      const initialParams = new URLSearchParams(location.search);
+      const initialFile = initialParams.get("file") || "";
+      const initialSimIndex = initialParams.get("sim_index") || "";
+
+      function renderFileOptions(filterText = "") {
+        const sel = document.getElementById("fileSelect");
+        const prev = sel.value;
+        const q = filterText.trim().toLowerCase();
+        let files = q
+          ? allFiles.filter((f) => ((f.path || f.name || "").toLowerCase().includes(q)))
+          : allFiles;
+        if (initialFile && !files.some((f) => (f.path || f.name) === initialFile)) {
+          files = [{ path: initialFile, name: initialFile, size: 0 }, ...files];
+        }
+        sel.innerHTML = "";
+        if (!files.length) {
+          const o = document.createElement("option");
+          o.value = "";
+          o.textContent = allFiles.length ? "（没有匹配的结果文件）" : "（暂无 simulations/**/*.json）";
+          sel.appendChild(o);
+          return;
+        }
+        for (const f of files) {
+          const o = document.createElement("option");
+          const path = f.path || f.name;
+          o.value = path;
+          o.textContent = path + "  ·  " + Math.round(f.size / 1024) + " KB";
+          sel.appendChild(o);
+        }
+        if (prev && files.some((f) => (f.path || f.name) === prev)) {
+          sel.value = prev;
+        } else if (initialFile && files.some((f) => (f.path || f.name) === initialFile)) {
+          sel.value = initialFile;
+        }
+      }
+
+      async function loadFileList() {
+        const res = await fetch("/api/simulations");
+        const data = await res.json();
+        allFiles = data.files || [];
+        renderFileOptions(document.getElementById("fileFilter").value);
+        if (initialFile) {
+          document.getElementById("fileSelect").value = initialFile;
+        }
+      }
+
+      async function loadRunOptions() {
+        const file = document.getElementById("fileSelect").value;
+        const simSel = document.getElementById("simSelect");
+        simSel.innerHTML = "";
+        if (!file) return;
+        const res = await fetch("/api/simulation-runs?" + new URLSearchParams({ file }));
+        const data = await res.json();
+        for (const r of data.runs) {
+          const o = document.createElement("option");
+          o.value = String(r.index);
+          o.textContent =
+            "#" +
+            (r.display_index ?? r.index) +
+            "  " +
+            outcomeLabel(r.reward) +
+            "  reward=" +
+            (r.reward ?? "-") +
+            "  task=" +
+            r.task_id +
+            "  trial=" +
+            (r.trial ?? "-") +
+            "  ·  " +
+            (r.termination_reason || "") +
+            "  ·  " +
+            r.message_count +
+            " msgs";
+          simSel.appendChild(o);
+        }
+        if (initialSimIndex && [...simSel.options].some((o) => o.value === initialSimIndex)) {
+          simSel.value = initialSimIndex;
+        }
+      }
+
+      function esc(s) {
+        if (s == null) return "";
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function outcomeLabel(reward) {
+        if (reward == null) return "未评估";
+        return Number(reward) === 1 ? "正确" : "错误";
+      }
+
+      function renderToolCalls(tcs) {
+        if (!tcs || !tcs.length) return "";
+        let html = '<div class="tc-arg"><strong>工具调用</strong></div>';
+        for (const tc of tcs) {
+          html +=
+            '<pre style="margin-top:6px">' +
+            esc(JSON.stringify(tc, null, 2)) +
+            "</pre>";
+        }
+        return html;
+      }
+
+      function renderHttpRequest(request) {
+        if (!request) return "";
+        const label = request.source === "recorded" ? "原始 HTTP 请求" : "重建 HTTP 请求";
+        return (
+          "<details><summary><strong>" +
+          esc(label) +
+          "</strong></summary><pre>" +
+          esc(JSON.stringify(request, null, 2)) +
+          "</pre></details>"
+        );
+      }
+
+      function renderHttpResponse(response) {
+        if (!response) return "";
+        const label =
+          response.source === "saved_choice_only" ? "已保存的 assistant/user 返回" : "原始 HTTP 响应";
+        return (
+          "<details><summary><strong>" +
+          esc(label) +
+          "</strong></summary><pre>" +
+          esc(JSON.stringify(response, null, 2)) +
+          "</pre></details>"
+        );
+      }
+
+      function buildUserProfileHtml(p) {
+        if (!p) return "";
+        let h =
+          '<h2>User Simulator 角色设定</h2>' +
+          '<p class="muted" style="margin:0 0 12px;font-size:12px;line-height:1.5">' +
+          "数据来自保存的 <code>results.json</code>：<code>info.user_info</code>（全局说明模板 + 所用模型）以及" +
+          " 当前 <code>task</code> 的 <code>user_scenario</code>、<code>instructions</code>。" +
+          " 下方「实际送入 User LLM 的完整 system」与运行时 <code>UserSimulator.system_prompt</code> 一致（" +
+          "<code>str(user_profile)</code> + <code>instructions</code> 填入模板）。</p>";
+        if (p.note) {
+          h += '<p class="err" style="margin:0 0 8px">' + esc(p.note) + "</p>";
+        }
+        h +=
+          '<div class="badge" style="margin-bottom:10px">implementation=' +
+          esc(p.implementation || "") +
+          " · llm=" +
+          esc(p.llm || "") +
+          (p.domain ? " · domain=" + esc(p.domain) : "") +
+          "</div>";
+        if (p.user_scenario) {
+          h +=
+            '<details open style="margin-top:10px"><summary><strong>user_scenario（人设 / 情境）</strong></summary><pre>' +
+            esc(JSON.stringify(p.user_scenario, null, 2)) +
+            "</pre></details>";
+        }
+        if (p.instructions != null && p.instructions !== "") {
+          h +=
+            '<details open style="margin-top:10px"><summary><strong>instructions（本任务要通过对话传达给智能体的指令）</strong></summary><pre>' +
+            esc(p.instructions) +
+            "</pre></details>";
+        }
+        if (p.persona_runtime_string != null) {
+          h +=
+            '<details style="margin-top:10px"><summary><strong>模板中的 {persona} 实参（与代码中 str(user_profile) 一致）</strong></summary><pre>' +
+            esc(p.persona_runtime_string) +
+            "</pre></details>";
+        }
+        if (p.llm_args) {
+          h +=
+            '<details style="margin-top:10px"><summary><strong>User LLM 调用参数（敏感 HTTP 头已脱敏）</strong></summary><pre>' +
+            esc(JSON.stringify(p.llm_args, null, 2)) +
+            "</pre></details>";
+        }
+        if (p.global_simulation_guidelines_template) {
+          h +=
+            '<details style="margin-top:10px"><summary><strong>全局用户模拟器说明模板（含 {persona}、{instructions} 占位符）</strong></summary><pre style="max-height:360px">' +
+            esc(p.global_simulation_guidelines_template) +
+            "</pre></details>";
+        }
+        if (p.rendered_system_prompt_error) {
+          h +=
+            '<p class="err" style="margin-top:10px">渲染系统提示失败：' +
+            esc(p.rendered_system_prompt_error) +
+            "</p>";
+        }
+        if (p.rendered_user_system_prompt) {
+          h +=
+            '<details open style="margin-top:10px"><summary><strong>实际送入 User LLM 的完整 system 内容</strong></summary><pre style="max-height:560px">' +
+            esc(p.rendered_user_system_prompt) +
+            "</pre></details>";
+        }
+        return h;
+      }
+
+      function buildEvaluationHtml(ev) {
+        if (!ev) return "";
+        const rubrics = Array.isArray(ev.nl_rubrics) ? ev.nl_rubrics : [];
+        const metCount = rubrics.filter((x) => x && x.met === true).length;
+        let h =
+          '<h2>最终评估结果（Evaluator）</h2>' +
+          '<div class="badge" style="margin-bottom:10px">reward=' +
+          esc(ev.reward) +
+          " · rubrics_met=" +
+          esc(`${metCount}/${rubrics.length}`) +
+          "</div>";
+
+        if (ev.reward_breakdown) {
+          h +=
+            '<details open style="margin-top:8px"><summary><strong>Reward Breakdown</strong></summary><pre>' +
+            esc(JSON.stringify(ev.reward_breakdown, null, 2)) +
+            "</pre></details>";
+        }
+
+        if (rubrics.length > 0) {
+          h +=
+            '<details open style="margin-top:8px"><summary><strong>NL Rubrics 判定明细</strong></summary><pre>' +
+            esc(JSON.stringify(rubrics, null, 2)) +
+            "</pre></details>";
+        }
+
+        if (ev.info) {
+          h +=
+            '<details style="margin-top:8px"><summary><strong>Evaluator Additional Info</strong></summary><pre>' +
+            esc(JSON.stringify(ev.info, null, 2)) +
+            "</pre></details>";
+        }
+
+        if (ev.window_evaluations) {
+          h +=
+            '<details style="margin-top:8px"><summary><strong>Sliding Window Evaluations（较大，默认折叠）</strong></summary><pre style="max-height:560px">' +
+            esc(JSON.stringify(ev.window_evaluations, null, 2)) +
+            "</pre></details>";
+        }
+
+        return h;
+      }
+
+      function renderEntry(e) {
+        const kind = e.kind || "unknown";
+        const headLeft =
+          "#" +
+          e.seq +
+          " · " +
+          (kind === "multi_tool" ? "工具（多条）" : kind) +
+          (e.turn_idx != null ? " · turn " + e.turn_idx : "") +
+          (e.timestamp ? " · " + e.timestamp : "");
+        let body = "";
+
+        if (kind === "system") {
+          body = "<pre>" + esc(e.content || "") + "</pre>";
+        } else if (kind === "user") {
+          body = "";
+          if (e.user_received_context && e.user_received_context.length) {
+            body +=
+              '<details><summary><strong>本轮 user 接收到的信息（按顺序重建，默认折叠）</strong></summary><pre>' +
+              esc(JSON.stringify(e.user_received_context, null, 2)) +
+              "</pre></details>";
+          }
+          if (e.reasoning) {
+            body +=
+              '<div class="reasoning-label-user">用户思维链（User Simulator / reasoning）</div><pre class="reasoning-user">' +
+              esc(e.reasoning) +
+              "</pre>";
+          }
+          if (e.content) {
+            body +=
+              '<div style="margin-top:8px"><strong>用户对外发言</strong></div><pre>' +
+              esc(e.content) +
+              "</pre>";
+          }
+          body += renderToolCalls(e.tool_calls);
+          if (e.usage)
+            body +=
+              '<div class="badge" style="margin-top:6px">usage: ' +
+              esc(JSON.stringify(e.usage)) +
+              "</div>";
+          if (e.cost != null)
+            body += '<div class="badge">cost: ' + esc(String(e.cost)) + "</div>";
+          if (e.raw_data && includeRaw) {
+            body +=
+              "<details><summary>raw_data（原始）</summary><pre>" +
+              esc(JSON.stringify(e.raw_data, null, 2)) +
+              "</pre></details>";
+          }
+          body += renderHttpRequest(e.http_request);
+          body += renderHttpResponse(e.http_response);
+        } else if (kind === "assistant") {
+          if (e.assistant_received_context && e.assistant_received_context.length) {
+            body +=
+              '<details><summary><strong>本轮 assistant 接收到的信息（按顺序重建，默认折叠）</strong></summary><pre>' +
+              esc(JSON.stringify(e.assistant_received_context, null, 2)) +
+              "</pre></details>";
+          }
+          if (e.reasoning) {
+            body +=
+              '<div class="reasoning-label">助手思维链（Agent LLM / reasoning）</div><pre style="background:#134e4a;color:#ccfbf1">' +
+              esc(e.reasoning) +
+              "</pre>";
+          }
+          if (e.content) {
+            body += '<div style="margin-top:8px"><strong>助手对外发言</strong></div><pre>' + esc(e.content) + "</pre>";
+          }
+          body += renderToolCalls(e.tool_calls);
+          if (e.usage)
+            body +=
+              '<div class="badge" style="margin-top:6px">usage: ' +
+              esc(JSON.stringify(e.usage)) +
+              "</div>";
+          if (e.cost != null)
+            body += '<div class="badge">cost: ' + esc(String(e.cost)) + "</div>";
+          if (e.raw_data && includeRaw) {
+            body +=
+              "<details><summary>raw_data（含接口完整字段）</summary><pre>" +
+              esc(JSON.stringify(e.raw_data, null, 2)) +
+              "</pre></details>";
+          }
+          body += renderHttpRequest(e.http_request);
+          body += renderHttpResponse(e.http_response);
+        } else if (kind === "tool") {
+          body =
+            '<div class="badge">call_id: ' +
+            esc(e.tool_call_id) +
+            " · requestor: " +
+            esc(e.requestor) +
+            "</div>";
+          if (e.error) body += '<div class="err" style="margin-top:6px">工具执行报错</div>';
+          body += "<pre style=\"margin-top:8px\">" + esc(e.content || "") + "</pre>";
+        } else if (kind === "multi_tool") {
+          for (const t of e.tool_results || []) {
+            body +=
+              '<div style="margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px">';
+            body +=
+              '<div class="badge">' +
+              esc(t.tool_name) +
+              " · " +
+              esc(t.tool_call_id) +
+              "</div>";
+            if (t.error) body += '<div class="err">error</div>';
+            body += "<pre style=\"margin-top:6px\">" + esc(t.content || "") + "</pre></div>";
+          }
+        } else {
+          body = "<pre>" + esc(e.repr || JSON.stringify(e, null, 2)) + "</pre>";
+        }
+
+        return (
+          '<div class="msg ' +
+          (kind === "multi_tool" ? "multi_tool" : kind) +
+          '">' +
+          '<div class="msg-head"><span>' +
+          esc(headLeft) +
+          '</span><span class="badge">' +
+          esc(e.role || "") +
+          "</span></div>" +
+          '<div class="msg-body">' +
+          body +
+          "</div></div>"
+        );
+      }
+
+      async function loadTimeline() {
+        const file = document.getElementById("fileSelect").value;
+        const simIndex = parseInt(document.getElementById("simSelect").value || "0", 10);
+        if (!file) return;
+        const params = new URLSearchParams({
+          file,
+          sim_index: String(simIndex),
+          include_raw: includeRaw ? "true" : "false",
+        });
+        const res = await fetch("/api/simulation-timeline?" + params.toString());
+        if (!res.ok) {
+          alert(await res.text());
+          return;
+        }
+        const data = await res.json();
+        document.getElementById("placeholder").style.display = "none";
+        const profEl = document.getElementById("userProfile");
+        if (data.user_simulator_profile) {
+          profEl.style.display = "block";
+          profEl.innerHTML = buildUserProfileHtml(data.user_simulator_profile);
+        } else {
+          profEl.style.display = "none";
+          profEl.innerHTML = "";
+        }
+        const evalEl = document.getElementById("evaluationResult");
+        if (data.evaluation_result) {
+          evalEl.style.display = "block";
+          evalEl.innerHTML = buildEvaluationHtml(data.evaluation_result);
+        } else {
+          evalEl.style.display = "none";
+          evalEl.innerHTML = "";
+        }
+        const s = data.summary;
+        const sumEl = document.getElementById("summary");
+        sumEl.style.display = "block";
+        sumEl.innerHTML =
+          "<strong>摘要</strong> task_id=<code>" +
+          esc(s.task_id) +
+          "</code> trial=<code>" +
+          esc(s.trial) +
+          "</code> termination=<code>" +
+          esc(s.termination_reason) +
+          "</code> duration=<code>" +
+          esc(s.duration) +
+          "s</code> reward=<code>" +
+          esc(s.reward) +
+          "</code> messages=<code>" +
+          esc(s.message_count) +
+          "</code>";
+        const tl = document.getElementById("timeline");
+        tl.innerHTML = (data.timeline || []).map(renderEntry).join("");
+      }
+
+      document.getElementById("loadBtn").onclick = loadTimeline;
+      document.getElementById("toggleRaw").onclick = () => {
+        includeRaw = !includeRaw;
+        document.getElementById("toggleRaw").textContent = "含 raw_data: " + (includeRaw ? "开" : "关");
+      };
+      document.getElementById("fileSelect").onchange = loadRunOptions;
+      document.getElementById("fileFilter").oninput = () => {
+        renderFileOptions(document.getElementById("fileFilter").value);
+        loadRunOptions();
+      };
+
+      loadFileList()
+        .then(loadRunOptions)
+        .then(() => {
+          if (initialFile) loadTimeline();
+        });
+    </script>
+  </body>
+</html>

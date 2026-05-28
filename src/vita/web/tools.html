@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaBench 工具调试台</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", sans-serif; margin: 0; background: #f5f7fb; color: #1e293b; }
+      .top { background: #0f172a; color: #e2e8f0; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      .top a { color: #93c5fd; text-decoration: none; }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
+      .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; }
+      .field { flex: 1; min-width: 220px; }
+      label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; }
+      select, button, input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
+      button { background: #2563eb; color: #fff; border: none; cursor: pointer; }
+      button.secondary { background: #334155; }
+      pre { margin: 0; padding: 10px; background: #0b1020; color: #e2e8f0; border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 420px; overflow: auto; }
+      .muted { font-size: 12px; color: #64748b; }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <strong>VitaBench</strong>
+      <a href="/">完整轨迹</a>
+      <span>工具调试台（独立窗口）</span>
+    </div>
+    <div class="wrap">
+      <div class="card">
+        <h2 style="margin:0 0 8px">选择仿真上下文</h2>
+        <div class="row">
+          <div class="field">
+            <label>结果文件过滤</label>
+            <input id="fileFilter" placeholder="例如 merged / minimax / instore" />
+          </div>
+          <div class="field">
+            <label>结果文件</label>
+            <select id="fileSelect"></select>
+          </div>
+          <div class="field">
+            <label>simulation</label>
+            <select id="simSelect"></select>
+          </div>
+          <div class="field" style="flex:0">
+            <label>&nbsp;</label>
+            <button id="loadToolsBtn">加载工具</button>
+          </div>
+        </div>
+        <p class="muted" id="ctxNote"></p>
+      </div>
+
+      <div class="card">
+        <h2 style="margin:0 0 8px">工具详情与调用</h2>
+        <div class="row">
+          <div class="field">
+            <label>工具</label>
+            <select id="toolSelect"></select>
+          </div>
+          <div class="field" style="flex:0">
+            <label>&nbsp;</label>
+            <button class="secondary" id="refreshBtn">刷新</button>
+          </div>
+        </div>
+        <details open style="margin-top:8px">
+          <summary><strong>工具详细信息 / schema</strong></summary>
+          <pre id="toolMeta"></pre>
+        </details>
+        <label style="margin-top:10px">调用参数（JSON）</label>
+        <pre id="argsEditor" contenteditable="true" style="min-height:120px"></pre>
+        <div class="row" style="margin-top:8px">
+          <div class="field" style="flex:0">
+            <button id="invokeBtn">调用工具</button>
+          </div>
+        </div>
+        <details open style="margin-top:8px">
+          <summary><strong>调用返回</strong></summary>
+          <pre id="invokeResult"></pre>
+        </details>
+      </div>
+    </div>
+
+    <script>
+      let currentTools = [];
+      let allFiles = [];
+
+      function esc(s) {
+        if (s == null) return "";
+        return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      function outcomeLabel(reward) {
+        if (reward == null) return "未评估";
+        return Number(reward) === 1 ? "正确" : "错误";
+      }
+
+      function renderFileOptions(filterText = "") {
+        const sel = document.getElementById("fileSelect");
+        const prev = sel.value;
+        const q = filterText.trim().toLowerCase();
+        const files = q
+          ? allFiles.filter((f) => ((f.path || f.name || "").toLowerCase().includes(q)))
+          : allFiles;
+        sel.innerHTML = "";
+        if (!files.length) {
+          const o = document.createElement("option");
+          o.value = "";
+          o.textContent = allFiles.length ? "（没有匹配的结果文件）" : "（暂无 simulations/**/*.json）";
+          sel.appendChild(o);
+          return;
+        }
+        for (const f of files) {
+          const o = document.createElement("option");
+          const path = f.path || f.name;
+          o.value = path;
+          o.textContent = `${path} · ${Math.round(f.size / 1024)} KB`;
+          sel.appendChild(o);
+        }
+        if (prev && files.some((f) => (f.path || f.name) === prev)) {
+          sel.value = prev;
+        }
+      }
+
+      async function loadFiles() {
+        const res = await fetch("/api/simulations");
+        const data = await res.json();
+        allFiles = data.files || [];
+        renderFileOptions(document.getElementById("fileFilter").value);
+      }
+
+      async function loadRuns() {
+        const file = document.getElementById("fileSelect").value;
+        if (!file) return;
+        const res = await fetch("/api/simulation-runs?" + new URLSearchParams({ file }));
+        const data = await res.json();
+        const sel = document.getElementById("simSelect");
+        sel.innerHTML = "";
+        for (const r of data.runs || []) {
+          const o = document.createElement("option");
+          o.value = String(r.index);
+          o.textContent = `#${r.index} ${outcomeLabel(r.reward)} reward=${r.reward ?? "-"} task=${r.task_id} trial=${r.trial ?? "-"} · ${r.message_count} msgs`;
+          sel.appendChild(o);
+        }
+      }
+
+      function setToolMeta(tool) {
+        document.getElementById("toolMeta").textContent = tool ? JSON.stringify(tool, null, 2) : "";
+      }
+
+      function setArgsTemplate(tool) {
+        const props = (tool?.openai_schema?.function?.parameters?.properties) || {};
+        const args = {};
+        for (const k of Object.keys(props)) {
+          const t = props[k]?.type;
+          if (t === "integer" || t === "number") args[k] = 0;
+          else if (t === "boolean") args[k] = false;
+          else if (t === "array") args[k] = [];
+          else if (t === "object") args[k] = {};
+          else args[k] = "";
+        }
+        document.getElementById("argsEditor").textContent = JSON.stringify(args, null, 2);
+      }
+
+      async function loadTools() {
+        const file = document.getElementById("fileSelect").value;
+        const simIndex = parseInt(document.getElementById("simSelect").value || "0", 10);
+        if (!file) return;
+        const res = await fetch("/api/simulation-tools?" + new URLSearchParams({ file, sim_index: String(simIndex) }));
+        if (!res.ok) {
+          document.getElementById("ctxNote").textContent = await res.text();
+          return;
+        }
+        const data = await res.json();
+        document.getElementById("ctxNote").textContent = `task=${data.task_id} domain=${data.domain}。${data.note || ""}`;
+        currentTools = data.tools || [];
+        const sel = document.getElementById("toolSelect");
+        sel.innerHTML = "";
+        for (const t of currentTools) {
+          const o = document.createElement("option");
+          o.value = t.name;
+          o.textContent = t.name;
+          sel.appendChild(o);
+        }
+        if (currentTools.length > 0) {
+          setToolMeta(currentTools[0]);
+          setArgsTemplate(currentTools[0]);
+        } else {
+          setToolMeta(null);
+          document.getElementById("argsEditor").textContent = "{}";
+        }
+      }
+
+      async function invokeTool() {
+        const file = document.getElementById("fileSelect").value;
+        const simIndex = parseInt(document.getElementById("simSelect").value || "0", 10);
+        const toolName = document.getElementById("toolSelect").value;
+        let args = {};
+        try {
+          args = JSON.parse(document.getElementById("argsEditor").textContent || "{}");
+        } catch (e) {
+          document.getElementById("invokeResult").textContent = "参数 JSON 解析失败: " + e;
+          return;
+        }
+        const res = await fetch("/api/simulation-tool-invoke", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            file,
+            sim_index: simIndex,
+            tool_name: toolName,
+            arguments: args,
+          }),
+        });
+        const txt = await res.text();
+        try {
+          document.getElementById("invokeResult").textContent = JSON.stringify(JSON.parse(txt), null, 2);
+        } catch (_) {
+          document.getElementById("invokeResult").textContent = txt;
+        }
+      }
+
+      document.getElementById("fileSelect").onchange = loadRuns;
+      document.getElementById("fileFilter").oninput = () => {
+        renderFileOptions(document.getElementById("fileFilter").value);
+        loadRuns().then(loadTools);
+      };
+      document.getElementById("simSelect").onchange = loadTools;
+      document.getElementById("loadToolsBtn").onclick = loadTools;
+      document.getElementById("refreshBtn").onclick = loadTools;
+      document.getElementById("invokeBtn").onclick = invokeTool;
+      document.getElementById("toolSelect").onchange = () => {
+        const t = currentTools.find((x) => x.name === document.getElementById("toolSelect").value);
+        setToolMeta(t || null);
+        setArgsTemplate(t || null);
+      };
+
+      loadFiles().then(loadRuns).then(loadTools);
+    </script>
+  </body>
+</html>

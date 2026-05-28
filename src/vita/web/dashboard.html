@@ -1,0 +1,1195 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaBench 看板</title>
+    <style>
+      :root {
+        --paper: #f7f3ea;
+        --ink: #202124;
+        --muted: #6f6a60;
+        --line: #d8d0c1;
+        --panel: #fffaf0;
+        --panel-strong: #f0e6d3;
+        --coal: #252a2e;
+        --green: #1d7a5c;
+        --amber: #a05d00;
+        --red: #b3261e;
+        --blue: #2368a2;
+        --violet: #7b4aa0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          "Avenir Next", "Gill Sans", "Trebuchet MS", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 340px 1fr;
+      }
+
+      .rail {
+        border-right: 1px solid var(--line);
+        background: #eee4d2;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .brand {
+        padding: 18px 18px 14px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 21px;
+        letter-spacing: 0;
+      }
+
+      .clock {
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .rail-tools {
+        padding: 12px 14px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .rail-tools input {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: #fffaf0;
+        color: var(--ink);
+        border-radius: 6px;
+        padding: 9px 10px;
+        min-width: 0;
+      }
+
+      .icon-btn {
+        border: 1px solid var(--line);
+        background: var(--coal);
+        color: #fffaf0;
+        border-radius: 6px;
+        width: 38px;
+        height: 38px;
+        cursor: pointer;
+      }
+
+      .runs {
+        overflow: auto;
+        padding: 10px;
+      }
+
+      .run-item {
+        width: 100%;
+        display: grid;
+        gap: 8px;
+        text-align: left;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 10px;
+        background: transparent;
+        cursor: pointer;
+        color: var(--ink);
+      }
+
+      .run-item:hover {
+        background: #f6eddc;
+      }
+
+      .run-item.active {
+        background: var(--panel);
+        border-color: #bfae91;
+      }
+
+      .run-title {
+        font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+      }
+
+      .run-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 99px;
+        background: currentColor;
+        display: inline-block;
+      }
+
+      .running {
+        color: var(--blue);
+      }
+
+      .complete {
+        color: var(--green);
+      }
+
+      .failed {
+        color: var(--red);
+      }
+
+      .partial {
+        color: var(--violet);
+      }
+
+      .pending {
+        color: var(--amber);
+      }
+
+      .main {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .topbar {
+        min-height: 64px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        padding: 13px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .topbar-title {
+        min-width: 0;
+      }
+
+      .topbar-title h2 {
+        margin: 0;
+        font-size: 18px;
+        overflow-wrap: anywhere;
+      }
+
+      .topbar-title p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .links a,
+      .links button {
+        border: 1px solid var(--line);
+        background: #fffaf0;
+        color: var(--ink);
+        text-decoration: none;
+        border-radius: 6px;
+        padding: 8px 10px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .content {
+        padding: 18px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(140px, 1fr));
+        gap: 10px;
+      }
+
+      .metric {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 8px;
+        padding: 12px;
+        min-height: 86px;
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .metric-value {
+        font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 22px;
+        line-height: 1.1;
+      }
+
+      .progress-track {
+        height: 8px;
+        width: 100%;
+        border-radius: 99px;
+        background: #e4dac8;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--green), var(--blue));
+        width: 0;
+      }
+
+      .section {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        overflow: hidden;
+      }
+
+      .section-head {
+        min-height: 42px;
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel-strong);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .section-head h3 {
+        margin: 0;
+        font-size: 14px;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .table th,
+      .table td {
+        border-bottom: 1px solid #e7decf;
+        padding: 10px 12px;
+        vertical-align: middle;
+        text-align: left;
+        font-size: 13px;
+      }
+
+      .table th {
+        color: var(--muted);
+        font-weight: 600;
+        background: #faf2e4;
+      }
+
+      .split-row {
+        cursor: pointer;
+      }
+
+      .split-row:hover {
+        background: #fff5e5;
+      }
+
+      .mono {
+        font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      }
+
+      .log-panel {
+        border-top: 1px solid var(--line);
+        background: #202124;
+        color: #f2eadf;
+      }
+
+      .result-row,
+      .simulation-row {
+        cursor: pointer;
+      }
+
+      .result-row:hover,
+      .simulation-row:hover {
+        background: #fff5e5;
+      }
+
+      .result-panel {
+        border-top: 1px solid var(--line);
+        background: #fff8eb;
+        padding: 12px;
+      }
+
+      .nested-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fffdf7;
+        border: 1px solid #e7decf;
+      }
+
+      .nested-table th,
+      .nested-table td {
+        border-bottom: 1px solid #ece2d1;
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+        font-size: 12px;
+      }
+
+      .pager {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 10px 12px;
+        border-top: 1px solid #e7decf;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .pager button,
+      .small-link {
+        border: 1px solid var(--line);
+        background: #fffaf0;
+        color: var(--ink);
+        border-radius: 6px;
+        padding: 6px 9px;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 12px;
+      }
+
+      .pager button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+
+      .active-filter {
+        background: var(--coal) !important;
+        color: #fffaf0 !important;
+        border-color: var(--coal) !important;
+      }
+
+      .timeline-preview {
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        background: #202124;
+        color: #f2eadf;
+        border-radius: 8px;
+      }
+
+      .timeline-preview details {
+        border: 1px solid #3b3f43;
+        border-radius: 7px;
+        background: #17191b;
+        padding: 7px 9px;
+      }
+
+      .timeline-preview summary {
+        cursor: pointer;
+        color: #d6d0c7;
+        font-size: 12px;
+      }
+
+      .log-tools {
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid #3b3f43;
+      }
+
+      .log-tools input {
+        width: 92px;
+        border: 1px solid #555b60;
+        background: #111315;
+        color: #f2eadf;
+        border-radius: 6px;
+        padding: 7px 8px;
+      }
+
+      .log-tools button {
+        border: 1px solid #5b625f;
+        background: #29302c;
+        color: #f2eadf;
+        border-radius: 6px;
+        padding: 7px 10px;
+        cursor: pointer;
+      }
+
+      pre {
+        margin: 0;
+        padding: 12px;
+        max-height: 56vh;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .empty {
+        padding: 28px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      @media (max-width: 980px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+          max-height: 38vh;
+        }
+
+        .metric-grid {
+          grid-template-columns: repeat(2, minmax(140px, 1fr));
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .metric-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .table {
+          min-width: 760px;
+        }
+
+        .section {
+          overflow-x: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="rail">
+        <div class="brand">
+          <h1>VitaBench</h1>
+          <span class="clock" id="clock">--:--:--</span>
+        </div>
+        <div class="rail-tools">
+          <input id="runFilter" placeholder="filter runs" />
+          <button class="icon-btn" id="refreshBtn" title="刷新">↻</button>
+        </div>
+        <div class="runs" id="runs"></div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="topbar-title">
+            <h2 id="runTitle">选择实验</h2>
+            <p id="runSubtitle">data/logs/benchmark_runs · data/simulations/benchmark_runs</p>
+          </div>
+          <div class="links">
+            <button id="autoBtn" title="自动刷新">auto on</button>
+            <a href="/trajectory">trajectory</a>
+            <a href="/events">events</a>
+          </div>
+        </header>
+
+        <div class="content" id="content">
+          <div class="empty">暂无实验</div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const state = {
+        runs: [],
+        detail: null,
+        selectedRun: new URLSearchParams(location.search).get("run") || "",
+        expandedSplit: "",
+        resultFilePage: 0,
+        resultFilesPerPage: 5,
+        expandedResultFile: "",
+        resultRunPages: {},
+        resultRuns: {},
+        resultRowsPerPage: 12,
+        resultRewardFilter: "all",
+        expandedSimulation: "",
+        timelines: {},
+        autoRefresh: true,
+        logLines: 300,
+      };
+
+      const statusText = {
+        running: "running",
+        complete: "complete",
+        failed: "failed",
+        partial: "partial",
+        pending: "pending",
+      };
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function fmtPct(value) {
+        return `${Math.round((Number(value) || 0) * 100)}%`;
+      }
+
+      function fmtTime(ts) {
+        if (!ts) return "-";
+        return new Date(ts * 1000).toLocaleString();
+      }
+
+      function fmtAge(seconds) {
+        if (seconds == null) return "-";
+        if (seconds < 60) return `${Math.floor(seconds)}s`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+        return `${(seconds / 3600).toFixed(1)}h`;
+      }
+
+      function fmtSize(bytes) {
+        if (!bytes) return "-";
+        if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      }
+
+      function statusBadge(status) {
+        const cls = statusText[status] || "pending";
+        return `<span class="status ${cls}"><span class="dot"></span>${cls}</span>`;
+      }
+
+      function selectedRun() {
+        if (state.detail?.run_name === state.selectedRun) return state.detail;
+        return state.runs.find((run) => run.run_name === state.selectedRun);
+      }
+
+      function trajectoryHref(file, simIndex = "") {
+        const params = new URLSearchParams({ file });
+        if (simIndex !== "") params.set("sim_index", String(simIndex));
+        return `/trajectory?${params.toString()}`;
+      }
+
+      function resultFilesForRun(run) {
+        const seen = new Set();
+        return (run.splits || [])
+          .filter((split) => split.result_view_file)
+          .map((split) => ({
+            file: split.result_view_file,
+            split: split.label,
+            status: split.status,
+            completed: split.completed,
+            expected: split.expected,
+            progress: split.progress,
+            metrics: split.metrics || {},
+            size: split.result_size,
+            mtime: split.result_mtime || split.mtime,
+          }))
+          .filter((row) => {
+            if (seen.has(row.file)) return false;
+            seen.add(row.file);
+            return true;
+          });
+      }
+
+      async function loadRuns() {
+        const res = await fetch("/api/benchmark-runs?limit=120");
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        state.runs = data.runs || [];
+        if (!state.selectedRun && state.runs.length) {
+          state.selectedRun = state.runs[0].run_name;
+        }
+        if (state.selectedRun && !selectedRun() && state.runs.length) {
+          state.selectedRun = state.runs[0].run_name;
+        }
+        if (state.selectedRun) {
+          await loadSelectedRunDetail();
+        }
+        renderRuns();
+        renderContent();
+        if (state.expandedSplit) {
+          loadLog();
+        }
+      }
+
+      async function loadSelectedRunDetail() {
+        const params = new URLSearchParams({ run_name: state.selectedRun });
+        const res = await fetch(`/api/benchmark-runs?${params.toString()}`);
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        state.detail = data.runs?.[0] || null;
+      }
+
+      function renderRuns() {
+        const filter = document.getElementById("runFilter").value.trim().toLowerCase();
+        const runs = document.getElementById("runs");
+        const filtered = state.runs.filter((run) =>
+          run.run_name.toLowerCase().includes(filter),
+        );
+        runs.innerHTML =
+          filtered
+            .map(
+              (run) => `
+                <button class="run-item ${run.run_name === state.selectedRun ? "active" : ""}" data-run="${escapeHtml(run.run_name)}">
+                  <div class="run-title">${escapeHtml(run.run_name)}</div>
+                  <div class="run-meta">
+                    ${statusBadge(run.status)}
+                    <span>${escapeHtml(fmtPct(run.progress))} · ${escapeHtml(fmtAge(run.age_seconds))}</span>
+                  </div>
+                  <div class="progress-track"><div class="progress-bar" style="width:${escapeHtml(fmtPct(run.progress))}"></div></div>
+                </button>
+              `,
+            )
+            .join("") || `<div class="empty">No runs</div>`;
+
+        runs.querySelectorAll(".run-item").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.selectedRun = button.dataset.run;
+            state.expandedSplit = "";
+            state.resultFilePage = 0;
+            state.expandedResultFile = "";
+            state.expandedSimulation = "";
+            state.detail = null;
+            const url = new URL(location.href);
+            url.searchParams.set("run", state.selectedRun);
+            history.replaceState(null, "", url);
+            loadRuns().catch(console.error);
+          });
+        });
+      }
+
+      function renderContent() {
+        const run = selectedRun();
+        const content = document.getElementById("content");
+        document.getElementById("runTitle").textContent = run?.run_name || "选择实验";
+        document.getElementById("runSubtitle").textContent = run
+          ? `last update ${fmtTime(run.last_update)}`
+          : "data/logs/benchmark_runs · data/simulations/benchmark_runs";
+
+        if (!run) {
+          content.innerHTML = `<div class="empty">暂无实验</div>`;
+          return;
+        }
+
+        const visibleSplits = run.splits.filter(
+          (split) => split.status !== "pending" || split.log_file || split.result_file,
+        );
+
+        content.innerHTML = `
+          <section class="metric-grid">
+            <div class="metric">
+              <div class="metric-label">run status</div>
+              <div>${statusBadge(run.status)}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">samples</div>
+              <div class="metric-value">${run.completed_samples}/${run.expected_samples}</div>
+              <div class="progress-track"><div class="progress-bar" style="width:${fmtPct(run.progress)}"></div></div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">splits</div>
+              <div class="metric-value">${run.completed_splits}/${run.total_splits}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">last update</div>
+              <div class="metric-value">${escapeHtml(fmtAge(run.age_seconds))}</div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-head">
+              <h3>Splits</h3>
+              <span class="mono">${escapeHtml(run.run_name)}</span>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>split</th>
+                  <th>status</th>
+                  <th>progress</th>
+                  <th>avg reward</th>
+                  <th>pass^1</th>
+                  <th>result</th>
+                  <th>log</th>
+                  <th>updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  visibleSplits
+                    .map(
+                      (split) => `
+                        <tr class="split-row" data-split="${escapeHtml(split.key)}">
+                          <td class="mono">${escapeHtml(split.label)}</td>
+                          <td>${statusBadge(split.status)}</td>
+                          <td>
+                            <span class="mono">${split.completed}/${split.expected}</span>
+                            <div class="progress-track"><div class="progress-bar" style="width:${fmtPct(split.progress)}"></div></div>
+                          </td>
+                          <td class="mono">${split.metrics?.avg_reward == null ? "-" : Number(split.metrics.avg_reward).toFixed(4)}</td>
+                          <td class="mono">${split.metrics?.pass1 == null ? "-" : Number(split.metrics.pass1).toFixed(4)}</td>
+                          <td>${resultLink(split)}</td>
+                          <td class="mono">${escapeHtml(split.log_file || "-")}</td>
+                          <td>${escapeHtml(fmtAge(split.mtime ? Date.now() / 1000 - split.mtime : null))}</td>
+                        </tr>
+                        ${
+                          state.expandedSplit === split.key
+                            ? `<tr><td colspan="8">${renderLogPanel(split)}</td></tr>`
+                            : ""
+                        }
+                      `,
+                    )
+                    .join("") || `<tr><td colspan="8"><div class="empty">No split logs</div></td></tr>`
+                }
+              </tbody>
+            </table>
+          </section>
+
+          ${renderResultFilesSection(run)}
+        `;
+
+        content.querySelectorAll(".split-row").forEach((row) => {
+          row.addEventListener("click", () => {
+            const split = row.dataset.split;
+            state.expandedSplit = state.expandedSplit === split ? "" : split;
+            renderContent();
+            if (state.expandedSplit) loadLog();
+          });
+        });
+
+        bindResultEvents(content);
+
+        const refreshLog = document.getElementById("refreshLogBtn");
+        if (refreshLog) refreshLog.addEventListener("click", loadLog);
+        const lines = document.getElementById("logLines");
+        if (lines) {
+          lines.addEventListener("change", () => {
+            state.logLines = Math.max(1, Math.min(5000, Number(lines.value) || 300));
+            loadLog();
+          });
+        }
+      }
+
+      function renderResultFilesSection(run) {
+        const files = resultFilesForRun(run);
+        const pageCount = Math.max(1, Math.ceil(files.length / state.resultFilesPerPage));
+        state.resultFilePage = Math.min(state.resultFilePage, pageCount - 1);
+        const start = state.resultFilePage * state.resultFilesPerPage;
+        const visibleFiles = files.slice(start, start + state.resultFilesPerPage);
+        return `
+          <section class="section">
+            <div class="section-head">
+              <h3>Result Files</h3>
+              <div class="links">
+                <button id="rewardFilterBtn" class="${state.resultRewardFilter === "non_full" ? "active-filter" : ""}" title="只看 reward 未满分的 simulations">
+                  ${state.resultRewardFilter === "non_full" ? "non-full reward on" : "non-full reward"}
+                </button>
+                <span class="mono">${files.length} files</span>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>file</th>
+                  <th>split</th>
+                  <th>status</th>
+                  <th>samples</th>
+                  <th>avg reward</th>
+                  <th>size</th>
+                  <th>updated</th>
+                  <th>open</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  visibleFiles
+                    .map(
+                      (fileRow) => `
+                        <tr class="result-row" data-file="${escapeHtml(fileRow.file)}">
+                          <td class="mono">${escapeHtml(fileRow.file)}</td>
+                          <td class="mono">${escapeHtml(fileRow.split)}</td>
+                          <td>${statusBadge(fileRow.status)}</td>
+                          <td class="mono">${fileRow.completed}/${fileRow.expected}</td>
+                          <td class="mono">${fileRow.metrics.avg_reward == null ? "-" : Number(fileRow.metrics.avg_reward).toFixed(4)}</td>
+                          <td class="mono">${escapeHtml(fmtSize(fileRow.size))}</td>
+                          <td>${escapeHtml(fmtAge(fileRow.mtime ? Date.now() / 1000 - fileRow.mtime : null))}</td>
+                          <td><a class="small-link" href="${escapeHtml(trajectoryHref(fileRow.file))}" target="_blank" rel="noopener noreferrer">trajectory</a></td>
+                        </tr>
+                        ${
+                          state.expandedResultFile === fileRow.file
+                            ? `<tr><td colspan="8">${renderResultPanel(fileRow)}</td></tr>`
+                            : ""
+                        }
+                      `,
+                    )
+                    .join("") || `<tr><td colspan="8"><div class="empty">No result files yet</div></td></tr>`
+                }
+              </tbody>
+            </table>
+            ${renderPager("result", state.resultFilePage, pageCount, files.length)}
+          </section>
+        `;
+      }
+
+      function renderPager(kind, page, pageCount, total, file = "") {
+        if (pageCount <= 1) return "";
+        const attrs = file ? ` data-file="${escapeHtml(file)}"` : "";
+        return `
+          <div class="pager">
+            <span>${total} total · page ${page + 1}/${pageCount}</span>
+            <button data-page-kind="${kind}" data-page="${page - 1}"${attrs} ${page <= 0 ? "disabled" : ""}>prev</button>
+            <button data-page-kind="${kind}" data-page="${page + 1}"${attrs} ${page >= pageCount - 1 ? "disabled" : ""}>next</button>
+          </div>
+        `;
+      }
+
+      function renderResultPanel(fileRow) {
+        const file = fileRow.file;
+        const page = state.resultRunPages[file] || 0;
+        const cache = state.resultRuns[file];
+        if (!cache) {
+          queueMicrotask(() => loadResultRuns(file));
+          return `<div class="result-panel"><div class="empty">loading simulations...</div></div>`;
+        }
+        if (cache.loading) {
+          return `<div class="result-panel"><div class="empty">loading simulations...</div></div>`;
+        }
+        if (cache.error) {
+          return `<div class="result-panel"><div class="empty">${escapeHtml(cache.error)}</div></div>`;
+        }
+        const total = cache.total_count || cache.simulation_count || 0;
+        const pageCount = Math.max(1, Math.ceil(total / state.resultRowsPerPage));
+        const filterLabel =
+          cache.reward_filter === "non_full"
+            ? `non-full reward · ${total}/${cache.unfiltered_count || 0}`
+            : `${total} simulations`;
+        return `
+          <div class="result-panel">
+            <div class="mono" style="margin-bottom:10px">${escapeHtml(filterLabel)}</div>
+            <table class="nested-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>reward</th>
+                  <th>task</th>
+                  <th>trial</th>
+                  <th>termination</th>
+                  <th>messages</th>
+                  <th>open</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  (cache.runs || [])
+                    .map((sim) => renderSimulationRow(file, sim))
+                    .join("") || `<tr><td colspan="7"><div class="empty">No simulations</div></td></tr>`
+                }
+              </tbody>
+            </table>
+            ${renderPager("sim", page, pageCount, total, file)}
+          </div>
+        `;
+      }
+
+      function renderSimulationRow(file, sim) {
+        const key = simulationKey(file, sim.index);
+        const opened = state.expandedSimulation === key;
+        return `
+          <tr class="simulation-row" data-file="${escapeHtml(file)}" data-sim-index="${escapeHtml(sim.index)}">
+            <td class="mono">#${escapeHtml(sim.display_index ?? sim.index)}</td>
+            <td class="mono">${sim.reward == null ? "-" : escapeHtml(sim.reward)}</td>
+            <td class="mono">${escapeHtml(sim.task_id || "-")}</td>
+            <td class="mono">${escapeHtml(sim.trial ?? "-")}</td>
+            <td>${escapeHtml(sim.termination_reason || "-")}</td>
+            <td class="mono">${escapeHtml(sim.message_count ?? "-")}</td>
+            <td><a class="small-link" href="${escapeHtml(trajectoryHref(file, sim.index))}" target="_blank" rel="noopener noreferrer">trajectory</a></td>
+          </tr>
+          ${opened ? `<tr><td colspan="7">${renderSimulationDetail(file, sim.index)}</td></tr>` : ""}
+        `;
+      }
+
+      function renderSimulationDetail(file, simIndex) {
+        const key = simulationKey(file, simIndex);
+        const cache = state.timelines[key];
+        if (!cache) {
+          queueMicrotask(() => loadTimelinePreview(file, simIndex));
+          return `<div class="result-panel"><div class="empty">loading timeline...</div></div>`;
+        }
+        if (cache.loading) {
+          return `<div class="result-panel"><div class="empty">loading timeline...</div></div>`;
+        }
+        if (cache.error) {
+          return `<div class="result-panel"><div class="empty">${escapeHtml(cache.error)}</div></div>`;
+        }
+        const summary = cache.summary || {};
+        return `
+          <div class="result-panel">
+            <div class="mono" style="margin-bottom:10px">
+              task=${escapeHtml(summary.task_id || "-")} · reward=${escapeHtml(summary.reward ?? "-")}
+              · termination=${escapeHtml(summary.termination_reason || "-")}
+              · messages=${escapeHtml(summary.message_count ?? "-")}
+            </div>
+            <div class="timeline-preview">
+              ${(cache.timeline || []).map(renderTimelinePreviewEntry).join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      function renderTimelinePreviewEntry(entry) {
+        const title = `#${entry.seq} · ${entry.kind || "unknown"}${entry.turn_idx == null ? "" : ` · turn ${entry.turn_idx}`}`;
+        const rawBody =
+          entry.content ||
+          entry.reasoning ||
+          entry.repr ||
+          entry.tool_results ||
+          entry.tool_calls ||
+          entry.raw_data ||
+          {};
+        const body = typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody, null, 2);
+        return `
+          <details>
+            <summary>${escapeHtml(title)}</summary>
+            ${renderHttpRequest(entry.http_request)}
+            ${renderHttpResponse(entry.http_response)}
+            <pre>${escapeHtml(body || "")}</pre>
+          </details>
+        `;
+      }
+
+      function renderHttpRequest(request) {
+        if (!request) return "";
+        const label = request.source === "recorded" ? "raw HTTP request" : "reconstructed HTTP request";
+        return `
+          <details>
+            <summary>${escapeHtml(label)}</summary>
+            <pre>${escapeHtml(JSON.stringify(request, null, 2))}</pre>
+          </details>
+        `;
+      }
+
+      function renderHttpResponse(response) {
+        if (!response) return "";
+        const label =
+          response.source === "saved_choice_only" ? "saved assistant/user return" : "raw HTTP response";
+        return `
+          <details>
+            <summary>${escapeHtml(label)}</summary>
+            <pre>${escapeHtml(JSON.stringify(response, null, 2))}</pre>
+          </details>
+        `;
+      }
+
+      function resultLink(split) {
+        if (!split.result_view_file) return `<span class="mono">-</span>`;
+        return `<a href="${escapeHtml(trajectoryHref(split.result_view_file))}" target="_blank" rel="noopener noreferrer">open</a>`;
+      }
+
+      function bindResultEvents(root) {
+        root.querySelectorAll(".result-row").forEach((row) => {
+          row.addEventListener("click", (event) => {
+            if (event.target.closest("a,button")) return;
+            const file = row.dataset.file;
+            state.expandedResultFile = state.expandedResultFile === file ? "" : file;
+            state.expandedSimulation = "";
+            renderContent();
+            if (state.expandedResultFile) loadResultRuns(state.expandedResultFile);
+          });
+        });
+
+        root.querySelectorAll(".simulation-row").forEach((row) => {
+          row.addEventListener("click", (event) => {
+            if (event.target.closest("a,button")) return;
+            const file = row.dataset.file;
+            const simIndex = row.dataset.simIndex;
+            const key = simulationKey(file, simIndex);
+            state.expandedSimulation = state.expandedSimulation === key ? "" : key;
+            renderContent();
+            if (state.expandedSimulation) loadTimelinePreview(file, simIndex);
+          });
+        });
+
+        root.querySelectorAll("[data-page-kind]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (button.disabled) return;
+            const page = Number(button.dataset.page) || 0;
+            if (button.dataset.pageKind === "result") {
+              state.resultFilePage = page;
+              state.expandedResultFile = "";
+              state.expandedSimulation = "";
+              renderContent();
+              return;
+            }
+            const file = button.dataset.file;
+            state.resultRunPages[file] = page;
+            state.expandedSimulation = "";
+            loadResultRuns(file);
+          });
+        });
+
+        const rewardFilterBtn = document.getElementById("rewardFilterBtn");
+        if (rewardFilterBtn) {
+          rewardFilterBtn.addEventListener("click", () => {
+            state.resultRewardFilter =
+              state.resultRewardFilter === "non_full" ? "all" : "non_full";
+            state.resultRuns = {};
+            state.resultRunPages = {};
+            state.expandedSimulation = "";
+            renderContent();
+            if (state.expandedResultFile) loadResultRuns(state.expandedResultFile);
+          });
+        }
+      }
+
+      function simulationKey(file, simIndex) {
+        return `${file}::${simIndex}`;
+      }
+
+      async function loadResultRuns(file) {
+        const page = state.resultRunPages[file] || 0;
+        state.resultRuns[file] = {
+          ...(state.resultRuns[file] || {}),
+          loading: true,
+        };
+        const params = new URLSearchParams({
+          file,
+          offset: String(page * state.resultRowsPerPage),
+          limit: String(state.resultRowsPerPage),
+        });
+        if (state.resultRewardFilter === "non_full") {
+          params.set("reward_filter", "non_full");
+        }
+        try {
+          const res = await fetch(`/api/simulation-runs?${params.toString()}`);
+          if (!res.ok) throw new Error(await res.text());
+          state.resultRuns[file] = await res.json();
+        } catch (err) {
+          state.resultRuns[file] = { error: err.message || String(err) };
+        }
+        renderContent();
+      }
+
+      async function loadTimelinePreview(file, simIndex) {
+        const key = simulationKey(file, simIndex);
+        state.timelines[key] = {
+          ...(state.timelines[key] || {}),
+          loading: true,
+        };
+        const params = new URLSearchParams({
+          file,
+          sim_index: String(simIndex),
+          include_raw: "false",
+        });
+        try {
+          const res = await fetch(`/api/simulation-timeline?${params.toString()}`);
+          if (!res.ok) throw new Error(await res.text());
+          state.timelines[key] = await res.json();
+        } catch (err) {
+          state.timelines[key] = { error: err.message || String(err) };
+        }
+        renderContent();
+      }
+
+      function renderLogPanel(split) {
+        return `
+          <div class="log-panel">
+            <div class="log-tools">
+              <span class="mono">${escapeHtml(split.log_file || split.label)}</span>
+              <input id="logLines" type="number" min="1" max="5000" value="${state.logLines}" />
+              <button id="refreshLogBtn">refresh</button>
+            </div>
+            <pre id="logText">loading...</pre>
+          </div>
+        `;
+      }
+
+      async function loadLog() {
+        if (!state.selectedRun || !state.expandedSplit) return;
+        const target = document.getElementById("logText");
+        if (!target) return;
+        const params = new URLSearchParams({
+          run_name: state.selectedRun,
+          split: state.expandedSplit,
+          lines: String(state.logLines),
+        });
+        const res = await fetch(`/api/benchmark-log?${params.toString()}`);
+        target.textContent = res.ok ? await res.text() : await res.text();
+      }
+
+      function tickClock() {
+        document.getElementById("clock").textContent = new Date().toLocaleTimeString();
+      }
+
+      document.getElementById("refreshBtn").addEventListener("click", loadRuns);
+      document.getElementById("runFilter").addEventListener("input", renderRuns);
+      document.getElementById("autoBtn").addEventListener("click", () => {
+        state.autoRefresh = !state.autoRefresh;
+        document.getElementById("autoBtn").textContent = state.autoRefresh
+          ? "auto on"
+          : "auto off";
+      });
+
+      setInterval(() => {
+        tickClock();
+        if (state.autoRefresh) loadRuns().catch(console.error);
+      }, 8000);
+
+      tickClock();
+      setInterval(tickClock, 1000);
+      loadRuns().catch((err) => {
+        document.getElementById("content").innerHTML =
+          `<div class="empty">${escapeHtml(err.message)}</div>`;
+      });
+    </script>
+  </body>
+</html>
