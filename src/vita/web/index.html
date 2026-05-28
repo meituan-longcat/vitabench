@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaBench 日志分析</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; background: #f6f8fb; color: #1f2937; }
+      .wrap { max-width: 1400px; margin: 0 auto; padding: 16px; }
+      .grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
+      .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+      h1 { font-size: 20px; margin: 0 0 12px; }
+      h2 { font-size: 15px; margin: 0 0 8px; }
+      .run-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; margin-bottom: 8px; cursor: pointer; }
+      .run-item.active { border-color: #3b82f6; background: #eff6ff; }
+      label { font-size: 12px; display: block; margin: 8px 0 4px; color: #374151; }
+      input, select { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; }
+      button { margin-top: 10px; background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+      .events { max-height: 76vh; overflow: auto; }
+      .event { border-bottom: 1px solid #f1f5f9; padding: 10px 0; }
+      .event-head { font-size: 13px; font-weight: bold; margin-bottom: 6px; }
+      pre { margin: 0; padding: 8px; border-radius: 8px; background: #0b1020; color: #d1d5db; font-size: 12px; overflow: auto; }
+      .muted { color: #6b7280; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div style="background:#0f172a;color:#e2e8f0;padding:10px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <strong>VitaBench</strong>
+      <span style="opacity:.85">事件日志（data/logs/*.jsonl）</span>
+      <a href="/trajectory" style="color:#93c5fd">完整轨迹（data/simulations/*.json）→</a>
+    </div>
+    <div class="wrap">
+      <h1>VitaBench 日志分析面板</h1>
+      <div class="grid">
+        <div class="card">
+          <h2>Run 列表</h2>
+          <div id="runs"></div>
+        </div>
+        <div class="card">
+          <h2>事件过滤</h2>
+          <div class="muted">可按 task/trial/event_type/关键词过滤，查看完整事件 JSON。</div>
+          <label>Task ID</label>
+          <input id="taskId" placeholder="例如 1" />
+          <label>Trial</label>
+          <input id="trial" type="number" placeholder="例如 0" />
+          <label>Event Type</label>
+          <input id="eventType" placeholder="例如 tool_call_finished" />
+          <label>关键词</label>
+          <input id="q" placeholder="全文搜索 JSON 文本" />
+          <label>限制数量</label>
+          <input id="limit" type="number" value="500" />
+          <button id="searchBtn">查询事件</button>
+          <p class="muted" id="meta"></p>
+          <div class="events" id="events"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentRun = null;
+
+      async function loadRuns() {
+        const res = await fetch("/api/runs");
+        const data = await res.json();
+        const runs = document.getElementById("runs");
+        runs.innerHTML = "";
+        for (const run of data.runs) {
+          const div = document.createElement("div");
+          div.className = "run-item" + (currentRun === run.run_id ? " active" : "");
+          div.innerHTML = `
+            <div><strong>${run.run_id}</strong></div>
+            <div class="muted">events: ${run.total_events}</div>
+            <div class="muted">simulations: ${run.simulations.length}</div>
+          `;
+          div.onclick = () => {
+            currentRun = run.run_id;
+            loadRuns();
+            loadEvents();
+          };
+          runs.appendChild(div);
+        }
+      }
+
+      async function loadEvents() {
+        if (!currentRun) return;
+        const taskId = document.getElementById("taskId").value.trim();
+        const trial = document.getElementById("trial").value.trim();
+        const eventType = document.getElementById("eventType").value.trim();
+        const q = document.getElementById("q").value.trim();
+        const limit = document.getElementById("limit").value.trim() || "500";
+
+        const params = new URLSearchParams({ run_id: currentRun, limit });
+        if (taskId) params.append("task_id", taskId);
+        if (trial) params.append("trial", trial);
+        if (eventType) params.append("event_type", eventType);
+        if (q) params.append("q", q);
+
+        const res = await fetch(`/api/events?${params.toString()}`);
+        const data = await res.json();
+        document.getElementById("meta").textContent =
+          `当前 run: ${currentRun} | 命中 ${data.count} 条` + (data.truncated ? "（已截断）" : "");
+
+        const events = document.getElementById("events");
+        events.innerHTML = "";
+        for (const event of data.events) {
+          const div = document.createElement("div");
+          div.className = "event";
+          div.innerHTML = `
+            <div class="event-head">${event.timestamp || ""} | ${event.event_type || ""} | task=${event.task_id ?? "-"} | trial=${event.trial ?? "-"}</div>
+            <pre>${JSON.stringify(event, null, 2)}</pre>
+          `;
+          events.appendChild(div);
+        }
+      }
+
+      document.getElementById("searchBtn").onclick = loadEvents;
+      loadRuns();
+    </script>
+  </body>
+</html>

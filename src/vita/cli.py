@@ -236,6 +236,56 @@ def main():
     )
     view_parser.set_defaults(func=lambda args: run_view_simulations(args))
 
+    # Log viewer command
+    log_view_parser = subparsers.add_parser(
+        "log-view",
+        help="Start Web UI: / dashboard, /events JSONL events, /trajectory full traces.",
+    )
+    log_view_parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host for web UI server.",
+    )
+    log_view_parser.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Port for web UI server.",
+    )
+    log_view_parser.add_argument(
+        "--logs-dir",
+        type=str,
+        default=None,
+        help="Custom logs directory, default is data/logs.",
+    )
+    log_view_parser.set_defaults(func=lambda args: run_log_viewer(args))
+
+    # Benchmark dashboard command
+    board_parser = subparsers.add_parser(
+        "board",
+        help="Start VitaBench benchmark dashboard with run progress and split logs.",
+    )
+    board_parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host for web UI server.",
+    )
+    board_parser.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Port for web UI server.",
+    )
+    board_parser.add_argument(
+        "--logs-dir",
+        type=str,
+        default=None,
+        help="Custom logs directory, default is data/logs.",
+    )
+    board_parser.set_defaults(func=lambda args: run_log_viewer(args))
+
     # Domain command
     domain_parser = subparsers.add_parser("domain", help="Show domain documentation")
     domain_parser.add_argument(
@@ -260,6 +310,16 @@ def run_view_simulations(args):
         only_show_failed=args.only_show_failed,
         only_show_all_failed=args.only_show_all_failed,
     )
+
+
+def run_log_viewer(args):
+    import uvicorn
+
+    from vita.scripts.log_viewer import create_app
+
+    app = create_app(logs_dir=args.logs_dir)
+    uvicorn.run(app, host=args.host, port=args.port)
+
 
 if __name__ == "__main__":
     main()
